@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from config import Config
-from src.web_scraper import AIToolsScraper
+from src.toolify_scraper import ToolifyScraper
 from src.openai_analyzer import OpenAIAnalyzer
 from src.data_processor import DataProcessor
 from src.google_sheets_integration import GoogleSheetsIntegration
@@ -26,7 +26,7 @@ class AIWordsMiningSystem:
     
     def __init__(self):
         self.config = Config()
-        self.scraper = AIToolsScraper()
+        self.scraper = ToolifyScraper()
         self.analyzer = OpenAIAnalyzer()
         self.processor = DataProcessor()
         self.sheets_integration = GoogleSheetsIntegration()

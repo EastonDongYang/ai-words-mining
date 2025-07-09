@@ -17,7 +17,7 @@ class Config:
     GOOGLE_SHEETS_RANGE: str = os.getenv('GOOGLE_SHEETS_RANGE', 'Sheet1!A:Z')
     
     # Scraping Configuration
-    TARGET_URL: str = os.getenv('TARGET_URL', 'https://theresanaiforthat.com/trending/week/top-50/?pos=1')
+    TARGET_URL: str = os.getenv('TARGET_URL', 'https://www.toolify.ai/new')
     SCRAPING_DELAY: int = int(os.getenv('SCRAPING_DELAY', '2'))
     
     # Notification Configuration

@@ -32,7 +32,7 @@ jobs:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
         GOOGLE_SHEETS_RANGE: ${{ secrets.GOOGLE_SHEETS_RANGE }}
-        TARGET_URL: ${{ secrets.TARGET_URL }}
+        TARGET_URL: https://www.toolify.ai/new
       run: |
         python main.py
     
