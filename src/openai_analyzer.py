@@ -10,7 +10,12 @@ class OpenAIAnalyzer:
     
     def __init__(self):
         self.config = Config()
-        self.client = openai.OpenAI(api_key=self.config.OPENAI_API_KEY)
+        # Initialize OpenAI client with proper API key
+        self.client = openai.OpenAI(
+            api_key=self.config.OPENAI_API_KEY,
+            timeout=30.0,
+            max_retries=3
+        )
         self.extracted_words = set()
         
     def analyze_tools_batch(self, tools_data: List[Dict]) -> List[Dict]:
@@ -46,22 +51,31 @@ class OpenAIAnalyzer:
             # Create the prompt for OpenAI
             prompt = self.create_analysis_prompt(tools_text)
             
-            # Call OpenAI API
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": self.get_system_prompt()},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=2000
-            )
-            
-            # Parse the response
-            result = response.choices[0].message.content
-            new_words = self.parse_openai_response(result)
-            
-            return new_words
+            # Call OpenAI API with proper error handling
+            try:
+                response = self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": self.get_system_prompt()},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=2000,
+                    timeout=30
+                )
+                
+                # Parse the response
+                result = response.choices[0].message.content
+                new_words = self.parse_openai_response(result)
+                
+                return new_words
+                
+            except openai.OpenAIError as e:
+                print(f"OpenAI API error: {e}")
+                return []
+            except Exception as e:
+                print(f"Unexpected error calling OpenAI: {e}")
+                return []
             
         except Exception as e:
             print(f"Error analyzing batch with OpenAI: {e}")
