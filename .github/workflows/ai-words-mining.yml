@@ -33,7 +33,7 @@ jobs:
     - name: Create credentials file
       run: |
         echo '${{ secrets.GOOGLE_CREDENTIALS }}' > credentials.json
-      if: secrets.GOOGLE_CREDENTIALS
+      if: ${{ secrets.GOOGLE_CREDENTIALS }}
     
     - name: Run AI Words Mining
       env:
@@ -94,7 +94,7 @@ jobs:
           🔧 Configuration:
           - Target URL: https://www.toolify.ai/new
           - OpenAI API: ✅ Configured
-          - Google Sheets: ${{ secrets.GOOGLE_SHEETS_ID && '✅ Configured' || '❌ Not configured' }}
+          - Google Sheets: Check repository secrets
         draft: false
         prerelease: false
     
