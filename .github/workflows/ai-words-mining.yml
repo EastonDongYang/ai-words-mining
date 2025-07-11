@@ -64,32 +64,14 @@ jobs:
           *.log
         retention-days: 7
     
-    - name: Create Release (if successful)
+    - name: Success Summary
       if: success()
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: results-${{ github.run_number }}
-        release_name: AI Words Mining Results ${{ github.run_number }}
-        body: |
-          🎉 AI Words Mining Results - Run #${{ github.run_number }}
-          
-          📅 Execution Date: ${{ github.event.head_commit.timestamp }}
-          🔗 Workflow: ${{ github.workflow }}
-          📊 Status: ✅ Success
-          
-          📄 Check the artifacts for detailed results:
-          - JSON backup files
-          - Human-readable summaries
-          - CSV exports
-          
-          🔧 Configuration:
-          - Target URL: https://www.toolify.ai/new
-          - OpenAI API: ✅ Configured
-          - Backup outputs: ✅ Multiple methods available
-        draft: false
-        prerelease: false
+      run: |
+        echo "🎉 AI Words Mining completed successfully!"
+        echo "📄 Results are available in artifacts"
+        echo "📊 Run number: ${{ github.run_number }}"
+        echo "🔗 Workflow: ${{ github.workflow }}"
+        echo "📅 Date: $(date)"
     
     - name: Notify on failure
       if: failure()
