@@ -10,11 +10,9 @@ class OpenAIAnalyzer:
     
     def __init__(self):
         self.config = Config()
-        # Initialize OpenAI client with proper API key
+        # Initialize OpenAI client with minimal configuration
         self.client = openai.OpenAI(
-            api_key=self.config.OPENAI_API_KEY,
-            timeout=30.0,
-            max_retries=3
+            api_key=self.config.OPENAI_API_KEY
         )
         self.extracted_words = set()
         
@@ -23,7 +21,7 @@ class OpenAIAnalyzer:
         if not tools_data:
             return []
         
-        print(f"Analyzing {len(tools_data)} AI tools with OpenAI...")
+        print(f"正在使用OpenAI分析 {len(tools_data)} 个AI工具...")
         
         # Split tools into batches to avoid token limits
         batch_size = self.config.BATCH_SIZE
@@ -35,7 +33,7 @@ class OpenAIAnalyzer:
             all_new_words.extend(batch_words)
             
             if self.config.DEBUG_MODE:
-                print(f"Processed batch {i//batch_size + 1}/{(len(tools_data) + batch_size - 1)//batch_size}")
+                print(f"已处理批次 {i//batch_size + 1}/{(len(tools_data) + batch_size - 1)//batch_size}")
             
             # Add delay between batches to respect rate limits
             time.sleep(1)
@@ -60,8 +58,7 @@ class OpenAIAnalyzer:
                         {"role": "user", "content": prompt}
                     ],
                     temperature=0.3,
-                    max_tokens=2000,
-                    timeout=30
+                    max_tokens=2000
                 )
                 
                 # Parse the response
@@ -71,51 +68,51 @@ class OpenAIAnalyzer:
                 return new_words
                 
             except openai.OpenAIError as e:
-                print(f"OpenAI API error: {e}")
+                print(f"OpenAI API错误: {e}")
                 return []
             except Exception as e:
-                print(f"Unexpected error calling OpenAI: {e}")
+                print(f"调用OpenAI时发生意外错误: {e}")
                 return []
             
         except Exception as e:
-            print(f"Error analyzing batch with OpenAI: {e}")
+            print(f"使用OpenAI分析批次时发生错误: {e}")
             return []
     
     def prepare_tools_text(self, tools_batch: List[Dict]) -> str:
         """Prepare tools data for OpenAI analysis"""
         tools_text = ""
         for i, tool in enumerate(tools_batch, 1):
-            tools_text += f"{i}. Tool: {tool['name']}\n"
-            tools_text += f"   Description: {tool['description']}\n"
-            tools_text += f"   Categories: {', '.join(tool.get('categories', []))}\n"
+            tools_text += f"{i}. 工具: {tool['name']}\n"
+            tools_text += f"   描述: {tool['description']}\n"
+            tools_text += f"   类别: {', '.join(tool.get('categories', []))}\n"
             tools_text += "\n"
         return tools_text
     
     def get_system_prompt(self) -> str:
         """Get the system prompt for OpenAI"""
-        return """You are an AI expert specializing in analyzing AI tools and extracting new terminology, concepts, and buzzwords from the AI/tech industry. Your task is to identify:
+        return """你是一个AI专家，专门分析AI工具并从AI/技术行业中提取新术语、概念和流行语。你的任务是识别：
 
-1. New or emerging AI terms, concepts, and buzzwords
-2. Technical terminology that might be trending
-3. Product names, technologies, or methodologies mentioned
-4. Industry jargon and specialized vocabulary
+1. 新的或新兴的AI术语、概念和流行语
+2. 可能正在流行的技术术语
+3. 提到的产品名称、技术或方法
+4. 行业术语和专业词汇
 
-Focus on terms that are:
-- Relatively new or emerging in the AI space
-- Technical or specialized terminology
-- Trending buzzwords in the industry
-- Names of specific AI technologies, models, or methodologies
+重点关注以下术语：
+- 在AI领域相对较新或新兴的
+- 技术性或专业术语
+- 行业中的流行词汇
+- 特定AI技术、模型或方法的名称
 
-Avoid common words, generic terms, and well-established vocabulary.
+避免常见词汇、通用术语和已确立的词汇。
 
-Return your analysis in the following JSON format:
+请以下列JSON格式返回分析结果：
 {
   "new_words": [
     {
-      "word": "term or phrase",
-      "category": "category (e.g., 'AI Model', 'Technology', 'Methodology', 'Buzzword')",
-      "definition": "brief definition or explanation",
-      "context": "where/how it was mentioned",
+      "word": "术语或短语",
+      "category": "类别 (例如：'AI模型', '技术', '方法', '流行语')",
+      "definition": "简短定义或解释",
+      "context": "在哪里/如何提到的",
       "importance": "high/medium/low"
     }
   ]
@@ -123,18 +120,18 @@ Return your analysis in the following JSON format:
     
     def create_analysis_prompt(self, tools_text: str) -> str:
         """Create the analysis prompt for OpenAI"""
-        return f"""Please analyze the following AI tools and extract new words, terms, concepts, and buzzwords:
+        return f"""请分析以下AI工具并提取新词汇、术语、概念和流行语：
 
 {tools_text}
 
-Please identify and extract:
-1. New or emerging AI terminology
-2. Technical buzzwords and jargon
-3. Product names and technologies
-4. Methodologies and concepts
-5. Industry-specific vocabulary
+请识别并提取：
+1. 新的或新兴的AI术语
+2. 技术流行语和术语
+3. 产品名称和技术
+4. 方法和概念
+5. 行业专用词汇
 
-Return the results in the specified JSON format."""
+请按照指定的JSON格式返回结果。"""
     
     def parse_openai_response(self, response: str) -> List[Dict]:
         """Parse OpenAI response and extract new words"""
@@ -161,7 +158,7 @@ Return the results in the specified JSON format."""
             
         except json.JSONDecodeError:
             if self.config.DEBUG_MODE:
-                print(f"Failed to parse JSON response: {response}")
+                print(f"无法解析JSON响应: {response}")
         
         return new_words
     
@@ -197,110 +194,58 @@ Return the results in the specified JSON format."""
         
         return True
     
-    def enhance_word_data(self, word_data: Dict) -> Dict:
-        """Enhance word data with additional analysis"""
-        try:
-            word = word_data['word']
-            
-            # Additional analysis prompt
-            enhancement_prompt = f"""Please provide additional analysis for the AI term "{word}":
-
-1. Is this a genuinely new or emerging term in AI?
-2. What is its trend potential (1-10)?
-3. What industry sectors would be most interested?
-4. Any related terms or synonyms?
-5. Is it worth tracking for business/investment purposes?
-
-Please respond in JSON format:
-{{
-  "is_emerging": true/false,
-  "trend_potential": 1-10,
-  "target_sectors": ["sector1", "sector2"],
-  "related_terms": ["term1", "term2"],
-  "business_value": "high/medium/low",
-  "explanation": "brief explanation"
-}}"""
-            
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an AI industry analyst specializing in trend analysis and terminology tracking."},
-                    {"role": "user", "content": enhancement_prompt}
-                ],
-                temperature=0.3,
-                max_tokens=500
-            )
-            
-            result = response.choices[0].message.content
-            json_match = re.search(r'\{.*\}', result, re.DOTALL)
-            
-            if json_match:
-                enhancement_data = json.loads(json_match.group(0))
-                word_data.update(enhancement_data)
-            
-        except Exception as e:
-            if self.config.DEBUG_MODE:
-                print(f"Error enhancing word data for '{word_data['word']}': {e}")
-        
-        return word_data
-    
     def filter_and_rank_words(self, words_data: List[Dict]) -> List[Dict]:
         """Filter and rank words by importance and novelty"""
         if not words_data:
             return []
         
-        # Remove duplicates based on word
+        # Filter out duplicates and low-quality words
         unique_words = {}
         for word_data in words_data:
             word = word_data['word'].lower()
             if word not in unique_words:
                 unique_words[word] = word_data
         
-        # Sort by importance and trend potential
-        sorted_words = sorted(
-            unique_words.values(),
-            key=lambda x: (
-                x.get('importance', 'medium') == 'high',
-                x.get('trend_potential', 5),
-                x.get('business_value', 'medium') == 'high'
-            ),
+        # Convert back to list and sort by importance
+        filtered_words = list(unique_words.values())
+        
+        # Sort by importance (high > medium > low)
+        importance_order = {'high': 3, 'medium': 2, 'low': 1}
+        filtered_words.sort(
+            key=lambda x: importance_order.get(x.get('importance', 'medium'), 2),
             reverse=True
         )
         
-        return sorted_words
+        return filtered_words
     
     def analyze_and_extract(self, tools_data: List[Dict]) -> List[Dict]:
         """Main method to analyze tools and extract new words"""
         if not tools_data:
+            print("没有工具数据需要分析")
             return []
         
         # Analyze tools in batches
-        new_words = self.analyze_tools_batch(tools_data)
+        all_words = self.analyze_tools_batch(tools_data)
         
-        # Filter and rank words
-        filtered_words = self.filter_and_rank_words(new_words)
+        if not all_words:
+            print("没有提取到新词汇")
+            return []
         
-        # Enhance top words with additional analysis
-        enhanced_words = []
-        for word_data in filtered_words[:20]:  # Enhance top 20 words
-            enhanced_word = self.enhance_word_data(word_data)
-            enhanced_words.append(enhanced_word)
+        # Filter and rank the extracted words
+        filtered_words = self.filter_and_rank_words(all_words)
         
-        # Add remaining words without enhancement
-        enhanced_words.extend(filtered_words[20:])
+        print(f"成功提取了 {len(filtered_words)} 个新词汇")
         
-        print(f"Extracted {len(enhanced_words)} new words/terms")
-        
-        return enhanced_words
+        return filtered_words
     
     def save_analysis_results(self, words_data: List[Dict], filename: str = "extracted_words.json"):
         """Save analysis results to JSON file"""
         try:
             with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(words_data, f, indent=2, ensure_ascii=False)
-            print(f"Saved {len(words_data)} words to {filename}")
+                json.dump(words_data, f, ensure_ascii=False, indent=2)
+            print(f"分析结果已保存到 {filename}")
         except Exception as e:
-            print(f"Error saving analysis results: {e}")
+            print(f"保存分析结果时发生错误: {e}")
 
 if __name__ == "__main__":
     # Test the analyzer
