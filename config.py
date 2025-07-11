@@ -21,6 +21,13 @@ class Config:
     NOTIFICATION_WEBHOOK_URL: Optional[str] = os.getenv('NOTIFICATION_WEBHOOK_URL')
     NOTIFICATION_EMAIL: Optional[str] = os.getenv('NOTIFICATION_EMAIL', 'risunsemi@gmail.com')
     
+    # Email Configuration
+    EMAIL_HOST: str = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT: int = int(os.getenv('EMAIL_PORT', '587'))
+    EMAIL_USE_TLS: bool = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
+    EMAIL_USERNAME: str = os.getenv('EMAIL_USERNAME', 'risunsemi@gmail.com')
+    EMAIL_PASSWORD: str = os.getenv('EMAIL_PASSWORD', '')
+    
     # System Configuration
     MAX_RETRIES: int = int(os.getenv('MAX_RETRIES', '3'))
     BATCH_SIZE: int = int(os.getenv('BATCH_SIZE', '10'))
@@ -55,4 +62,7 @@ class Config:
         print(f"  DEBUG_MODE: {cls.DEBUG_MODE}")
         print(f"  OPENAI_API_KEY: {'*' * 20 if cls.OPENAI_API_KEY else 'Not set'}")
         print(f"  NOTIFICATION_EMAIL: {cls.NOTIFICATION_EMAIL}")
+        print(f"  EMAIL_HOST: {cls.EMAIL_HOST}")
+        print(f"  EMAIL_PORT: {cls.EMAIL_PORT}")
+        print(f"  EMAIL_PASSWORD: {'*' * 16 if cls.EMAIL_PASSWORD else 'Not set'}")
         print("  GOOGLE_SHEETS: ❌ Removed - Using backup outputs only") 

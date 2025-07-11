@@ -47,18 +47,32 @@ class NotificationSystem:
     
     def send_email_notification(self, data: Dict) -> bool:
         """Send notification via email"""
-        if not self.config.NOTIFICATION_EMAIL:
-            print("No email configured")
+        if not self.config.NOTIFICATION_EMAIL or not self.config.EMAIL_PASSWORD:
+            print("Email not configured or password missing")
             return False
         
         try:
-            # This is a placeholder - you'll need to configure SMTP settings
-            # For production, use services like SendGrid, AWS SES, etc.
-            print("Email notification would be sent here")
-            print(f"To: {self.config.NOTIFICATION_EMAIL}")
-            print(f"Subject: AI Words Mining System - Report")
-            print(f"Body: {self.format_notification_text(data)}")
+            # Create message
+            msg = MIMEMultipart()
+            msg['From'] = self.config.EMAIL_USERNAME
+            msg['To'] = self.config.NOTIFICATION_EMAIL
+            msg['Subject'] = "AI Words Mining System - Report"
             
+            # Add body to email
+            body = self.format_notification_text(data)
+            msg.attach(MIMEText(body, 'plain'))
+            
+            # Gmail SMTP configuration
+            server = smtplib.SMTP(self.config.EMAIL_HOST, self.config.EMAIL_PORT)
+            server.starttls()  # Enable security
+            server.login(self.config.EMAIL_USERNAME, self.config.EMAIL_PASSWORD)
+            
+            # Send email
+            text = msg.as_string()
+            server.sendmail(self.config.EMAIL_USERNAME, self.config.NOTIFICATION_EMAIL, text)
+            server.quit()
+            
+            print(f"Email notification sent successfully to {self.config.NOTIFICATION_EMAIL}")
             return True
             
         except Exception as e:

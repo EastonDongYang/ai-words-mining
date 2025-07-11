@@ -34,6 +34,7 @@ jobs:
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+        EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         TARGET_URL: https://www.toolify.ai/new
         DEBUG_MODE: true
