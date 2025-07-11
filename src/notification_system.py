@@ -363,7 +363,7 @@ class NotificationSystem:
                 {'word': 'Test Word 2', 'category': 'Technology'}
             ],
             'sheets_url': 'https://docs.google.com/spreadsheets/d/test',
-            'source_url': 'https://theresanaiforthat.com/test'
+            'source_url': 'https://www.toolify.ai/test'
         }
         
         print("Testing notification system...")
