@@ -217,13 +217,259 @@ class AIWordsMiningSystem:
                 
                 return ''
             else:
-                raise Exception("Failed to update Google Sheets")
+                error_msg = "Failed to update Google Sheets"
+                print(f"❌ {error_msg}")
+                self.stats['warnings'].append(error_msg)
+                return ''
                 
         except Exception as e:
             error_msg = f"Failed to update Google Sheets: {str(e)}"
             print(f"❌ {error_msg}")
-            self.stats['errors'].append(error_msg)
-            raise
+            self.stats['warnings'].append(error_msg)
+            print("⚠️ Google Sheets update failed, but continuing with other output methods...")
+            return ''
+    
+    def create_backup_outputs(self, words_data: List[Dict], summary_data: Dict):
+        """Create backup outputs when Google Sheets fails"""
+        backup_methods = []
+        
+        try:
+            # 1. Enhanced local file backup
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_filename = f"ai_words_backup_{timestamp}.json"
+            
+            backup_data = {
+                'timestamp': timestamp,
+                'summary': summary_data,
+                'words': words_data,
+                'execution_stats': self.stats,
+                'total_words': len(words_data),
+                'execution_time': str(datetime.now() - self.start_time)
+            }
+            
+            with open(backup_filename, 'w', encoding='utf-8') as f:
+                import json
+                json.dump(backup_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"✅ Created local backup: {backup_filename}")
+            backup_methods.append(f"Local backup: {backup_filename}")
+            
+            # 2. Email backup (if configured)
+            if hasattr(self.config, 'NOTIFICATION_EMAIL') and self.config.NOTIFICATION_EMAIL:
+                try:
+                    self.send_email_backup(words_data, summary_data, backup_filename)
+                    print("✅ Email backup sent successfully")
+                    backup_methods.append(f"Email sent to: {self.config.NOTIFICATION_EMAIL}")
+                except Exception as e:
+                    print(f"⚠️ Email backup failed: {e}")
+                    backup_methods.append(f"Email backup failed: {e}")
+            
+            # 3. GitHub artifact preparation (for CI/CD)
+            if self.is_github_actions():
+                try:
+                    self.prepare_github_artifacts(words_data, summary_data, backup_filename)
+                    print("✅ GitHub artifacts prepared")
+                    backup_methods.append("GitHub artifacts prepared")
+                except Exception as e:
+                    print(f"⚠️ GitHub artifacts preparation failed: {e}")
+            
+            # 4. Create human-readable summary
+            self.create_readable_summary(words_data, summary_data, timestamp)
+            print("✅ Created readable summary")
+            backup_methods.append("Readable summary created")
+            
+            self.stats['backup_methods'] = backup_methods
+            
+        except Exception as e:
+            print(f"❌ Backup creation failed: {e}")
+            self.stats['warnings'].append(f"Backup creation failed: {e}")
+    
+    def send_email_backup(self, words_data: List[Dict], summary_data: Dict, backup_filename: str):
+        """Send email with backup data"""
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.mime.base import MIMEBase
+        from email import encoders
+        import os
+        
+        # Email configuration
+        smtp_server = "smtp.gmail.com"
+        smtp_port = 587
+        sender_email = "ai-words-mining@gmail.com"  # 可以配置
+        sender_password = os.getenv('EMAIL_PASSWORD', '')  # 需要应用密码
+        receiver_email = self.config.NOTIFICATION_EMAIL or "risunsemi@gmail.com"
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = receiver_email
+        msg['Subject'] = f"AI Words Mining Results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        # Email body
+        body = f"""
+🎉 AI Words Mining System - Results Report
+
+⏰ Execution Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+🕷️ Tools Analyzed: {self.stats['scraped_tools']}
+🧠 Words Extracted: {self.stats['extracted_words']}
+⚙️ Words Processed: {self.stats['processed_words']}
+📊 Google Sheets: ❌ (Failed - using backup methods)
+
+📝 Top Extracted Words:
+{self.format_words_for_email(words_data[:10])}
+
+📄 Complete data is attached as JSON file.
+
+🔧 System Information:
+- Execution Time: {datetime.now() - self.start_time}
+- Backup Methods: {', '.join(self.stats.get('backup_methods', []))}
+- Target URL: {self.config.TARGET_URL}
+
+Best regards,
+AI Words Mining System
+        """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Attach backup file if exists
+        if os.path.exists(backup_filename):
+            with open(backup_filename, "rb") as attachment:
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(attachment.read())
+                encoders.encode_base64(part)
+                part.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename= {backup_filename}'
+                )
+                msg.attach(part)
+        
+        # Send email (注意：这需要邮箱配置，在实际部署中需要设置)
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            # 注意：这里需要邮箱应用密码，不是普通密码
+            if sender_password:
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+                server.quit()
+            else:
+                print("⚠️ Email password not configured, skipping email send")
+        except Exception as e:
+            print(f"⚠️ Email send failed: {e}")
+            # 创建邮件内容文件作为备用
+            with open(f"email_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", 'w', encoding='utf-8') as f:
+                f.write(body)
+            print("✅ Email content saved to local file")
+    
+    def format_words_for_email(self, words_data: List[Dict]) -> str:
+        """Format words data for email display"""
+        if not words_data:
+            return "No words extracted"
+        
+        formatted = []
+        for i, word in enumerate(words_data, 1):
+            formatted.append(f"{i}. {word.get('word', 'N/A')} ({word.get('category', 'N/A')})")
+            if word.get('definition'):
+                formatted.append(f"   Definition: {word.get('definition', 'N/A')}")
+            formatted.append("")  # Empty line
+        
+        return "\n".join(formatted)
+    
+    def is_github_actions(self) -> bool:
+        """Check if running in GitHub Actions"""
+        import os
+        return os.getenv('GITHUB_ACTIONS') == 'true'
+    
+    def prepare_github_artifacts(self, words_data: List[Dict], summary_data: Dict, backup_filename: str):
+        """Prepare artifacts for GitHub Actions"""
+        import os
+        
+        # Create artifacts directory
+        artifacts_dir = "artifacts"
+        os.makedirs(artifacts_dir, exist_ok=True)
+        
+        # Copy backup file to artifacts
+        import shutil
+        if os.path.exists(backup_filename):
+            shutil.copy2(backup_filename, os.path.join(artifacts_dir, backup_filename))
+        
+        # Create summary file
+        summary_file = os.path.join(artifacts_dir, "execution_summary.md")
+        with open(summary_file, 'w', encoding='utf-8') as f:
+            f.write(f"""# AI Words Mining Execution Summary
+
+## 📊 Execution Statistics
+- **Start Time**: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}
+- **End Time**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+- **Duration**: {datetime.now() - self.start_time}
+- **Tools Scraped**: {self.stats['scraped_tools']}
+- **Words Extracted**: {self.stats['extracted_words']}
+- **Words Processed**: {self.stats['processed_words']}
+
+## 📝 Extracted Words
+{self.format_words_for_markdown(words_data)}
+
+## ⚠️ Warnings
+{chr(10).join(f"- {warning}" for warning in self.stats.get('warnings', []))}
+
+## 🔧 Backup Methods
+{chr(10).join(f"- {method}" for method in self.stats.get('backup_methods', []))}
+""")
+        
+        print(f"✅ GitHub artifacts prepared in {artifacts_dir}/")
+    
+    def format_words_for_markdown(self, words_data: List[Dict]) -> str:
+        """Format words data for markdown display"""
+        if not words_data:
+            return "No words extracted"
+        
+        formatted = ["| Word | Category | Definition |", "|------|----------|------------|"]
+        for word in words_data:
+            formatted.append(f"| {word.get('word', 'N/A')} | {word.get('category', 'N/A')} | {word.get('definition', 'N/A')} |")
+        
+        return "\n".join(formatted)
+    
+    def create_readable_summary(self, words_data: List[Dict], summary_data: Dict, timestamp: str):
+        """Create a human-readable summary file"""
+        summary_filename = f"ai_words_summary_{timestamp}.txt"
+        
+        with open(summary_filename, 'w', encoding='utf-8') as f:
+            f.write("🎉 AI Words Mining System - Execution Summary\n")
+            f.write("=" * 50 + "\n\n")
+            
+            f.write(f"📅 Execution Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"⏱️ Duration: {datetime.now() - self.start_time}\n")
+            f.write(f"🌐 Target URL: {self.config.TARGET_URL}\n\n")
+            
+            f.write("📊 Statistics:\n")
+            f.write(f"  - Tools Scraped: {self.stats['scraped_tools']}\n")
+            f.write(f"  - Words Extracted: {self.stats['extracted_words']}\n")
+            f.write(f"  - Words Processed: {self.stats['processed_words']}\n")
+            f.write(f"  - Google Sheets Updated: {'✅' if self.stats['sheets_updated'] else '❌'}\n\n")
+            
+            f.write("📝 Extracted Words:\n")
+            f.write("-" * 30 + "\n")
+            for i, word in enumerate(words_data, 1):
+                f.write(f"{i}. {word.get('word', 'N/A')}\n")
+                f.write(f"   Category: {word.get('category', 'N/A')}\n")
+                f.write(f"   Definition: {word.get('definition', 'N/A')}\n")
+                f.write(f"   Context: {word.get('context', 'N/A')}\n")
+                f.write(f"   Importance: {word.get('importance', 'N/A')}\n\n")
+            
+            if self.stats.get('warnings'):
+                f.write("⚠️ Warnings:\n")
+                f.write("-" * 30 + "\n")
+                for warning in self.stats['warnings']:
+                    f.write(f"  - {warning}\n")
+                f.write("\n")
+            
+            f.write("🔧 Backup Methods Used:\n")
+            f.write("-" * 30 + "\n")
+            for method in self.stats.get('backup_methods', []):
+                f.write(f"  - {method}\n")
+        
+        print(f"✅ Created readable summary: {summary_filename}")
     
     def send_completion_notification(self, words_data: List[Dict], summary_data: Dict, sheets_url: str = None):
         """Send completion notification"""
@@ -320,7 +566,15 @@ class AIWordsMiningSystem:
                 processed_result.get('summary', {})
             )
             
-            # Step 7: Send completion notification
+            # Step 7: Create backup outputs if Google Sheets failed
+            if not self.stats['sheets_updated']:
+                print("📄 Creating backup outputs...")
+                self.create_backup_outputs(
+                    processed_result.get('words', []),
+                    processed_result.get('summary', {})
+                )
+            
+            # Step 8: Send completion notification
             self.send_completion_notification(
                 processed_result.get('words', []),
                 processed_result.get('summary', {}),

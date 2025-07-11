@@ -149,4 +149,8 @@ Thumbs.db
 # AI Words Mining - Generated files
 ai_words_export.csv
 debug_*.json
-extracted_words.json 
+extracted_words.json
+ai_words_backup_*.json
+ai_words_summary_*.txt
+email_backup_*.txt
+artifacts/ 

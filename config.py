@@ -22,7 +22,7 @@ class Config:
     
     # Notification Configuration
     NOTIFICATION_WEBHOOK_URL: Optional[str] = os.getenv('NOTIFICATION_WEBHOOK_URL')
-    NOTIFICATION_EMAIL: Optional[str] = os.getenv('NOTIFICATION_EMAIL')
+    NOTIFICATION_EMAIL: Optional[str] = os.getenv('NOTIFICATION_EMAIL', 'risunsemi@gmail.com')
     
     # System Configuration
     MAX_RETRIES: int = int(os.getenv('MAX_RETRIES', '3'))
