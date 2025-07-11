@@ -144,4 +144,9 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
-*.swo 
+*.swo
+
+# AI Words Mining - Generated files
+ai_words_export.csv
+debug_*.json
+extracted_words.json 
