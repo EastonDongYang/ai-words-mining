@@ -30,16 +30,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Create credentials file
-      run: |
-        echo '${{ secrets.GOOGLE_CREDENTIALS }}' > credentials.json
-      if: ${{ secrets.GOOGLE_CREDENTIALS }}
-    
     - name: Run AI Words Mining
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
-        GOOGLE_SHEETS_RANGE: ${{ secrets.GOOGLE_SHEETS_RANGE }}
         NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         TARGET_URL: https://www.toolify.ai/new
@@ -94,7 +87,7 @@ jobs:
           🔧 Configuration:
           - Target URL: https://www.toolify.ai/new
           - OpenAI API: ✅ Configured
-          - Google Sheets: Check repository secrets
+          - Backup outputs: ✅ Multiple methods available
         draft: false
         prerelease: false
     

@@ -18,7 +18,6 @@ from config import Config
 from src.toolify_scraper import ToolifyScraper
 from src.openai_analyzer import OpenAIAnalyzer
 from src.data_processor import DataProcessor
-from src.google_sheets_integration import GoogleSheetsIntegration
 from src.notification_system import NotificationSystem
 
 class AIWordsMiningSystem:
@@ -29,7 +28,6 @@ class AIWordsMiningSystem:
         self.scraper = ToolifyScraper()
         self.analyzer = OpenAIAnalyzer()
         self.processor = DataProcessor()
-        self.sheets_integration = GoogleSheetsIntegration()
         self.notification_system = NotificationSystem()
         self.start_time = datetime.now()
         
@@ -79,17 +77,8 @@ class AIWordsMiningSystem:
             print(f"  ❌ OpenAI API test failed: {e}")
             success = False
         
-        # Test Google Sheets
-        try:
-            print("  - Testing Google Sheets API...")
-            if self.sheets_integration.test_connection():
-                print("  ✅ Google Sheets connection successful")
-            else:
-                print("  ❌ Google Sheets connection failed")
-                success = False
-        except Exception as e:
-            print(f"  ❌ Google Sheets test failed: {e}")
-            success = False
+        # Skip Google Sheets testing (removed)
+        print("  - Google Sheets integration removed - using backup outputs only")
         
         # Test Notifications
         try:
@@ -198,35 +187,20 @@ class AIWordsMiningSystem:
             self.stats['errors'].append(error_msg)
             raise
     
-    def update_google_sheets(self, words_data: List[Dict], summary_data: Dict) -> str:
-        """Update Google Sheets with processed data"""
-        print("📊 Updating Google Sheets...")
+    def create_all_backups(self, words_data: List[Dict], summary_data: Dict) -> str:
+        """Create all backup outputs (Google Sheets removed)"""
+        print("📄 Creating backup outputs...")
         
         try:
-            # Update sheets
-            success = self.sheets_integration.update_words_and_summary(words_data, summary_data)
-            
-            if success:
-                self.stats['sheets_updated'] = True
-                print("✅ Google Sheets updated successfully")
-                
-                # Get sheet URL
-                sheet_info = self.sheets_integration.get_sheet_info()
-                if sheet_info:
-                    return sheet_info.get('url', '')
-                
-                return ''
-            else:
-                error_msg = "Failed to update Google Sheets"
-                print(f"❌ {error_msg}")
-                self.stats['warnings'].append(error_msg)
-                return ''
-                
+            # Always create backup outputs since Google Sheets is removed
+            self.create_backup_outputs(words_data, summary_data)
+            self.stats['sheets_updated'] = False  # Google Sheets removed
+            print("✅ All backup outputs created successfully")
+            return ''
         except Exception as e:
-            error_msg = f"Failed to update Google Sheets: {str(e)}"
+            error_msg = f"Failed to create backup outputs: {str(e)}"
             print(f"❌ {error_msg}")
             self.stats['warnings'].append(error_msg)
-            print("⚠️ Google Sheets update failed, but continuing with other output methods...")
             return ''
     
     def create_backup_outputs(self, words_data: List[Dict], summary_data: Dict):
@@ -314,7 +288,7 @@ class AIWordsMiningSystem:
 🕷️ Tools Analyzed: {self.stats['scraped_tools']}
 🧠 Words Extracted: {self.stats['extracted_words']}
 ⚙️ Words Processed: {self.stats['processed_words']}
-📊 Google Sheets: ❌ (Failed - using backup methods)
+📊 Output Method: ✅ Multiple backup outputs created
 
 📝 Top Extracted Words:
 {self.format_words_for_email(words_data[:10])}
@@ -446,7 +420,7 @@ AI Words Mining System
             f.write(f"  - Tools Scraped: {self.stats['scraped_tools']}\n")
             f.write(f"  - Words Extracted: {self.stats['extracted_words']}\n")
             f.write(f"  - Words Processed: {self.stats['processed_words']}\n")
-            f.write(f"  - Google Sheets Updated: {'✅' if self.stats['sheets_updated'] else '❌'}\n\n")
+            f.write(f"  - Backup Outputs Created: {'✅' if self.stats.get('backup_methods') else '❌'}\n\n")
             
             f.write("📝 Extracted Words:\n")
             f.write("-" * 30 + "\n")
@@ -560,21 +534,13 @@ AI Words Mining System
             # Step 5: Process and deduplicate words
             processed_result = self.process_words(extracted_words)
             
-            # Step 6: Update Google Sheets
-            sheets_url = self.update_google_sheets(
+            # Step 6: Create backup outputs (Google Sheets removed)
+            sheets_url = self.create_all_backups(
                 processed_result.get('words', []),
                 processed_result.get('summary', {})
             )
             
-            # Step 7: Create backup outputs if Google Sheets failed
-            if not self.stats['sheets_updated']:
-                print("📄 Creating backup outputs...")
-                self.create_backup_outputs(
-                    processed_result.get('words', []),
-                    processed_result.get('summary', {})
-                )
-            
-            # Step 8: Send completion notification
+            # Step 7: Send completion notification
             self.send_completion_notification(
                 processed_result.get('words', []),
                 processed_result.get('summary', {}),
@@ -638,8 +604,8 @@ AI Words Mining System
             # Test processing
             processed_result = self.processor.process_extracted_words(extracted_words)
             
-            # Test sheets update
-            sheets_url = self.update_google_sheets(
+            # Test backup outputs
+            sheets_url = self.create_all_backups(
                 processed_result.get('words', []),
                 processed_result.get('summary', {})
             )

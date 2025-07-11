@@ -11,10 +11,7 @@ class Config:
     # OpenAI Configuration
     OPENAI_API_KEY: str = os.getenv('OPENAI_API_KEY', '')
     
-    # Google Sheets Configuration
-    GOOGLE_SHEETS_CREDENTIALS_PATH: str = os.getenv('GOOGLE_SHEETS_CREDENTIALS_PATH', 'credentials.json')
-    GOOGLE_SHEETS_ID: str = os.getenv('GOOGLE_SHEETS_ID', '')
-    GOOGLE_SHEETS_RANGE: str = os.getenv('GOOGLE_SHEETS_RANGE', 'Sheet1!A:Z')
+    # Google Sheets Configuration (removed - using backup outputs only)
     
     # Scraping Configuration
     TARGET_URL: str = os.getenv('TARGET_URL', 'https://www.toolify.ai/new')
@@ -33,8 +30,7 @@ class Config:
     def validate(cls) -> bool:
         """Validate required configuration"""
         required_fields = [
-            'OPENAI_API_KEY',
-            'GOOGLE_SHEETS_ID'
+            'OPENAI_API_KEY'
         ]
         
         missing_fields = []
@@ -54,9 +50,9 @@ class Config:
         print("Current Configuration:")
         print(f"  TARGET_URL: {cls.TARGET_URL}")
         print(f"  SCRAPING_DELAY: {cls.SCRAPING_DELAY}")
-        print(f"  GOOGLE_SHEETS_RANGE: {cls.GOOGLE_SHEETS_RANGE}")
         print(f"  MAX_RETRIES: {cls.MAX_RETRIES}")
         print(f"  BATCH_SIZE: {cls.BATCH_SIZE}")
         print(f"  DEBUG_MODE: {cls.DEBUG_MODE}")
         print(f"  OPENAI_API_KEY: {'*' * 20 if cls.OPENAI_API_KEY else 'Not set'}")
-        print(f"  GOOGLE_SHEETS_ID: {'*' * 20 if cls.GOOGLE_SHEETS_ID else 'Not set'}") 
+        print(f"  NOTIFICATION_EMAIL: {cls.NOTIFICATION_EMAIL}")
+        print("  GOOGLE_SHEETS: ❌ Removed - Using backup outputs only") 
