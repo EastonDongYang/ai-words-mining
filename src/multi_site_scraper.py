@@ -57,14 +57,33 @@ class MultiSiteScraper:
         chrome_options.add_experimental_option('useAutomationExtension', False)
         chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        driver = webdriver.Chrome(
-            service=webdriver.chrome.service.Service(ChromeDriverManager().install()),
-            options=chrome_options
-        )
-        
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        
-        return driver
+        try:
+            # Get the driver path and fix it if needed
+            driver_path = ChromeDriverManager().install()
+            
+            # Fix the common webdriver_manager path issue
+            if driver_path.endswith('THIRD_PARTY_NOTICES.chromedriver'):
+                import os
+                driver_dir = os.path.dirname(driver_path)
+                driver_path = os.path.join(driver_dir, 'chromedriver.exe')
+                
+                if not os.path.exists(driver_path):
+                    # Try alternative path
+                    driver_path = os.path.join(driver_dir, 'chromedriver')
+            
+            if self.config.DEBUG_MODE:
+                print(f"Using Chrome driver: {driver_path}")
+            
+            service = webdriver.chrome.service.Service(driver_path)
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            
+            return driver
+            
+        except Exception as e:
+            print(f"Chrome driver setup failed: {e}")
+            raise
     
     def scrape_all_sites(self) -> List[Dict]:
         """Scrape all configured sites and return combined results"""
@@ -138,20 +157,15 @@ class MultiSiteScraper:
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(2)
             
-            # Find tool elements
-            selectors = [
-                '.tool-card', '[data-testid="tool-card"]', '.ai-tool-card',
-                '.grid-item', '.tool-item', '.tool', 'article', '.card'
-            ]
+            # Get page source and parse with BeautifulSoup
+            html = driver.page_source
+            soup = BeautifulSoup(html, 'html.parser')
             
-            elements = []
-            for selector in selectors:
-                try:
-                    elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                    if len(elements) > 5:
-                        break
-                except:
-                    continue
+            # Find tool elements using BeautifulSoup
+            elements = soup.find_all(class_='tool-item')
+            
+            if self.config.DEBUG_MODE:
+                print(f"Found {len(elements)} tool items on Toolify")
             
             max_items = site_config.get('max_items', 50)
             for element in elements[:max_items]:
@@ -159,7 +173,9 @@ class MultiSiteScraper:
                     tool = self.extract_toolify_data(element)
                     if tool:
                         tools.append(tool)
-                except:
+                except Exception as e:
+                    if self.config.DEBUG_MODE:
+                        print(f"Error extracting tool: {e}")
                     continue
             
         except Exception as e:
@@ -410,43 +426,95 @@ class MultiSiteScraper:
     def extract_toolify_data(self, element) -> Optional[Dict]:
         """Extract data from Toolify element"""
         try:
-            # Extract name
+            # For Toolify.ai, extract from BeautifulSoup element (not Selenium)
+            # The element structure contains tool name and description in text content
+            
+            # Get the text content of the entire element
+            full_text = element.get_text(strip=True) if hasattr(element, 'get_text') else ""
+            
+            if not full_text or len(full_text) < 10:
+                return None
+            
+            # Extract name and description from the text pattern
+            # Format: "NameNameDescription..." or "Name Name Description..."
+            
+            # Try to find links to get the tool name
             name = ""
-            for selector in ["h1", "h2", "h3", "h4", ".title", ".name"]:
-                try:
-                    name_elem = element.find_element(By.CSS_SELECTOR, selector)
-                    name = name_elem.text.strip()
-                    if name and len(name) > 2:
-                        break
-                except:
-                    continue
-            
-            # Extract description
             description = ""
-            for selector in ["p", ".description", ".desc", ".summary"]:
-                try:
-                    desc_elem = element.find_element(By.CSS_SELECTOR, selector)
-                    description = desc_elem.text.strip()
-                    if description and len(description) > 10:
+            
+            # Method 1: Extract from links
+            links = element.find_all('a') if hasattr(element, 'find_all') else []
+            for link in links:
+                href = link.get('href', '')
+                link_text = link.get_text(strip=True)
+                
+                if href and href.startswith('/tool/') and link_text:
+                    # Split the text to extract name and description
+                    if len(link_text) > 10:
+                        # Try to split at repeated words or common patterns
+                        words = link_text.split()
+                        
+                        # Look for patterns like "NameNameDescription"
+                        for i in range(1, min(len(words), 4)):
+                            potential_name = ' '.join(words[:i])
+                            potential_desc = ' '.join(words[i:])
+                            
+                            # Check if this looks like a reasonable split
+                            if (len(potential_name) > 2 and len(potential_name) < 50 and
+                                len(potential_desc) > 10 and len(potential_desc) < 300):
+                                name = potential_name
+                                description = potential_desc
+                                break
+                        
+                        # If no good split found, use the first few words as name
+                        if not name and len(words) >= 2:
+                            name = ' '.join(words[:2])
+                            description = ' '.join(words[2:]) if len(words) > 2 else ""
+                        
                         break
-                except:
-                    continue
             
-            # Extract categories
-            categories = []
-            try:
-                tag_elements = element.find_elements(By.CSS_SELECTOR, ".tag, .category, .badge")
-                for tag in tag_elements:
-                    tag_text = tag.text.strip()
-                    if tag_text:
-                        categories.append(tag_text)
-            except:
-                pass
+            # Method 2: Fallback - extract from div content
+            if not name:
+                divs = element.find_all('div') if hasattr(element, 'find_all') else []
+                for div in divs:
+                    div_text = div.get_text(strip=True)
+                    if div_text and len(div_text) > 10 and len(div_text) < 200:
+                        words = div_text.split()
+                        if len(words) >= 3:
+                            name = ' '.join(words[:2])
+                            description = ' '.join(words[2:])
+                            break
             
-            if name and len(name) > 2:
+            # Clean up the extracted data
+            if name:
+                # Remove duplicated words (common in Toolify structure)
+                name_words = name.split()
+                if len(name_words) >= 2 and name_words[0] == name_words[1]:
+                    name = name_words[0]
+                
+                # Clean description
+                if description:
+                    # Remove the name from the beginning of description if it's duplicated
+                    if description.lower().startswith(name.lower()):
+                        description = description[len(name):].strip()
+                
+                # Extract categories from description or text
+                categories = ['AI Tool']
+                
+                # Look for common AI categories in the text
+                ai_keywords = ['AI', 'Machine Learning', 'Neural', 'GPT', 'LLM', 'Computer Vision', 
+                              'NLP', 'Deep Learning', 'Automation', 'Generator', 'Assistant']
+                
+                text_lower = (name + ' ' + description).lower()
+                for keyword in ai_keywords:
+                    if keyword.lower() in text_lower:
+                        categories.append(keyword)
+                        if len(categories) >= 3:
+                            break
+                
                 return {
-                    'name': name,
-                    'description': description or "AI tool description not available",
+                    'name': name.strip(),
+                    'description': description.strip() or "AI tool from Toolify",
                     'categories': categories[:3],
                     'source': 'toolify.ai'
                 }
@@ -538,23 +606,80 @@ class MultiSiteScraper:
     def extract_betalist_data(self, element) -> Optional[Dict]:
         """Extract data from BetaList element"""
         try:
-            # Extract name
+            # Extract name - try multiple strategies
             name = ""
-            name_elem = element.find(['h2', 'h3', 'h4'], class_=re.compile(r'title|name'))
-            if name_elem:
-                name = name_elem.get_text(strip=True)
+            
+            # Strategy 1: Look for specific BetaList selectors
+            name_selectors = [
+                'h2', 'h3', 'h4', 'h5',
+                '.startup-name', '.title', '.name',
+                'a[href*="startup"]', 'strong', 'b'
+            ]
+            
+            for selector in name_selectors:
+                try:
+                    if selector.startswith('.') or selector.startswith('['):
+                        name_elem = element.select_one(selector)
+                    else:
+                        name_elem = element.find(selector)
+                    
+                    if name_elem:
+                        name = name_elem.get_text(strip=True)
+                        if name and len(name) > 2 and len(name) < 100:
+                            break
+                except:
+                    continue
+            
+            # Strategy 2: Look in links
+            if not name:
+                links = element.find_all('a')
+                for link in links:
+                    link_text = link.get_text(strip=True)
+                    if link_text and len(link_text) > 2 and len(link_text) < 100:
+                        # Skip common navigation texts
+                        skip_texts = ['read more', 'more', 'learn more', 'visit', 'website', 'startup', 'home']
+                        if not any(skip in link_text.lower() for skip in skip_texts):
+                            name = link_text
+                            break
             
             # Extract description
             description = ""
-            desc_elem = element.find(['p', 'div'], class_=re.compile(r'description|desc'))
-            if desc_elem:
-                description = desc_elem.get_text(strip=True)
+            desc_selectors = [
+                'p', '.description', '.desc', '.summary', '.tagline',
+                '.startup-description', 'span', 'div'
+            ]
+            
+            for selector in desc_selectors:
+                try:
+                    if selector.startswith('.'):
+                        desc_elem = element.select_one(selector)
+                    else:
+                        desc_elem = element.find(selector)
+                    
+                    if desc_elem:
+                        desc_text = desc_elem.get_text(strip=True)
+                        if desc_text and len(desc_text) > 10 and len(desc_text) < 500:
+                            description = desc_text
+                            break
+                except:
+                    continue
+            
+            # Extract tags/categories if available
+            categories = ['BetaList', 'Startup']
+            try:
+                tag_elements = element.find_all(['span', 'div'], class_=re.compile(r'tag|category|label'))
+                for tag in tag_elements:
+                    tag_text = tag.get_text(strip=True)
+                    if tag_text and len(tag_text) < 30:
+                        categories.append(tag_text)
+            except:
+                pass
             
             if name and len(name) > 2:
                 return {
                     'name': name,
                     'description': description or "BetaList startup description not available",
-                    'categories': ['BetaList', 'Startup'],
+                    'categories': categories[:5],  # Limit to 5 categories
                     'source': 'betalist.com'
                 }
             

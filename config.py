@@ -29,32 +29,32 @@ class Config:
     # Site-specific configuration
     SITE_CONFIGS: dict = {
         'toolify.ai': {
-            'enabled': True,
-            'max_items': 50,
+            'enabled': True,  # 重新启用，测试修复后的Chrome WebDriver
+            'max_items': 20,  # 减少数量以加快测试
             'delay': 2,
             'use_selenium': True
         },
         'producthunt.com': {
-            'enabled': True,
-            'max_items': 30,
+            'enabled': True,  # 启用Product Hunt
+            'max_items': 15,
             'delay': 3,
             'use_selenium': True
         },
         'futuretools.io': {
-            'enabled': True,
-            'max_items': 40,
+            'enabled': False,  # 暂时禁用，先测试其他网站
+            'max_items': 20,
             'delay': 2,
             'use_selenium': True
         },
         'betalist.com': {
             'enabled': True,
-            'max_items': 25,
+            'max_items': 10,  # 减少数量以加快测试
             'delay': 2,
             'use_selenium': False
         },
         'explodingtopics.com': {
-            'enabled': True,
-            'max_items': 20,
+            'enabled': False,  # 暂时禁用，先测试其他网站
+            'max_items': 10,
             'delay': 3,
             'use_selenium': True
         }
