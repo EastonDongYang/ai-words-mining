@@ -16,6 +16,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from config import Config
 from src.toolify_scraper import ToolifyScraper
+from src.multi_site_scraper import MultiSiteScraper
 from src.openai_analyzer import OpenAIAnalyzer
 from src.data_processor import DataProcessor
 from src.notification_system import NotificationSystem
@@ -25,7 +26,8 @@ class AIWordsMiningSystem:
     
     def __init__(self):
         self.config = Config()
-        self.scraper = ToolifyScraper()
+        self.scraper = ToolifyScraper()  # Keep for backward compatibility
+        self.multi_scraper = MultiSiteScraper()  # New multi-site scraper
         self.analyzer = OpenAIAnalyzer()
         self.processor = DataProcessor()
         self.notification_system = NotificationSystem()
@@ -97,33 +99,74 @@ class AIWordsMiningSystem:
         return success
     
     def scrape_ai_tools(self) -> List[Dict]:
-        """Scrape AI tools from the target website"""
-        print("🕷️ Scraping AI tools...")
+        """Scrape AI tools from multiple websites"""
+        print("🕷️ Scraping AI tools from multiple sources...")
         
         try:
             # Send start notification
-            self.notification_system.notify_start(self.config.TARGET_URL)
-            
-            # Scrape tools
-            tools_data = self.scraper.scrape(self.config.TARGET_URL)
-            
-            if not tools_data:
-                print("❌ 主爬虫没有获取到数据，尝试使用模拟数据...")
-                from src.mock_web_scraper import MockWebScraper
-                mock_scraper = MockWebScraper()
-                tools_data = mock_scraper.scrape_ai_tools()
+            if self.config.ENABLE_MULTI_SITE:
+                self.notification_system.notify_start("Multiple AI tool websites")
+                print(f"🌐 Multi-site scraping enabled - scraping {len(self.config.TARGET_URLS)} sites")
+                
+                # Use multi-site scraper
+                tools_data = self.multi_scraper.scrape_all_sites()
                 
                 if not tools_data:
-                    raise Exception("No tools data scraped (including mock data)")
+                    print("❌ 多网站爬虫没有获取到数据，尝试单网站爬虫...")
+                    # Fallback to single site scraper
+                    tools_data = self.scraper.scrape(self.config.TARGET_URL)
                     
-                self.stats['warnings'].append("Used mock data due to scraping failure")
+                    if not tools_data:
+                        print("❌ 单网站爬虫也没有获取到数据，尝试使用模拟数据...")
+                        from src.mock_web_scraper import MockWebScraper
+                        mock_scraper = MockWebScraper()
+                        tools_data = mock_scraper.scrape_ai_tools()
+                        
+                        if not tools_data:
+                            raise Exception("No tools data scraped from any source")
+                            
+                        self.stats['warnings'].append("Used mock data due to all scraping failures")
+                    else:
+                        self.stats['warnings'].append("Fallback to single site scraper due to multi-site failure")
+                else:
+                    print(f"✅ Multi-site scraping successful")
+                    # Save detailed source statistics
+                    source_stats = {}
+                    for tool in tools_data:
+                        source = tool.get('source', 'unknown')
+                        source_stats[source] = source_stats.get(source, 0) + 1
+                    
+                    print("📊 Source breakdown:")
+                    for source, count in source_stats.items():
+                        print(f"  - {source}: {count} tools")
+                    
+                    # Save multi-site scraped data for debugging
+                    if self.config.DEBUG_MODE:
+                        self.multi_scraper.save_results(tools_data, "debug_multi_site_scraped_tools.json")
+            else:
+                print("🔗 Single-site scraping mode")
+                self.notification_system.notify_start(self.config.TARGET_URL)
+                
+                # Use single site scraper (original behavior)
+                tools_data = self.scraper.scrape(self.config.TARGET_URL)
+                
+                if not tools_data:
+                    print("❌ 单网站爬虫没有获取到数据，尝试使用模拟数据...")
+                    from src.mock_web_scraper import MockWebScraper
+                    mock_scraper = MockWebScraper()
+                    tools_data = mock_scraper.scrape_ai_tools()
+                    
+                    if not tools_data:
+                        raise Exception("No tools data scraped (including mock data)")
+                        
+                    self.stats['warnings'].append("Used mock data due to scraping failure")
+                
+                # Save scraped data for debugging
+                if self.config.DEBUG_MODE:
+                    self.scraper.save_to_json(tools_data, "debug_scraped_tools.json")
             
             self.stats['scraped_tools'] = len(tools_data)
             print(f"✅ Successfully obtained {len(tools_data)} AI tools")
-            
-            # Save scraped data for debugging
-            if self.config.DEBUG_MODE:
-                self.scraper.save_to_json(tools_data, "debug_scraped_tools.json")
             
             return tools_data
             
