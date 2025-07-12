@@ -228,15 +228,10 @@ class AIWordsMiningSystem:
             print(f"✅ Created local backup: {backup_filename}")
             backup_methods.append(f"Local backup: {backup_filename}")
             
-            # 2. Email backup (if configured)
+            # 2. Email backup (handled by notification_system in send_completion_notification)
             if hasattr(self.config, 'NOTIFICATION_EMAIL') and self.config.NOTIFICATION_EMAIL:
-                try:
-                    self.send_email_backup(words_data, summary_data, backup_filename)
-                    print("✅ Email backup sent successfully")
-                    backup_methods.append(f"Email sent to: {self.config.NOTIFICATION_EMAIL}")
-                except Exception as e:
-                    print(f"⚠️ Email backup failed: {e}")
-                    backup_methods.append(f"Email backup failed: {e}")
+                print("📧 Email notification will be sent via notification system")
+                backup_methods.append(f"Email notification configured for: {self.config.NOTIFICATION_EMAIL}")
             
             # 3. GitHub artifact preparation (for CI/CD)
             if self.is_github_actions():
@@ -267,11 +262,11 @@ class AIWordsMiningSystem:
         from email import encoders
         import os
         
-        # Email configuration
-        smtp_server = "smtp.gmail.com"
-        smtp_port = 587
-        sender_email = "ai-words-mining@gmail.com"  # 可以配置
-        sender_password = os.getenv('EMAIL_PASSWORD', '')  # 需要应用密码
+        # Email configuration - use the same config as notification system
+        smtp_server = self.config.EMAIL_HOST
+        smtp_port = self.config.EMAIL_PORT
+        sender_email = self.config.EMAIL_USERNAME  # 使用配置的发件人邮箱
+        sender_password = self.config.EMAIL_PASSWORD  # 使用配置的应用密码
         receiver_email = self.config.NOTIFICATION_EMAIL or "risunsemi@gmail.com"
         
         # Create message
