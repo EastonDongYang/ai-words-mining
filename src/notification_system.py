@@ -3,6 +3,9 @@ import requests
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+import os
 from typing import Dict, List, Optional
 from datetime import datetime
 from config import Config
@@ -45,8 +48,8 @@ class NotificationSystem:
             print(f"Error sending webhook notification: {e}")
             return False
     
-    def send_email_notification(self, data: Dict) -> bool:
-        """Send notification via email"""
+    def send_email_notification(self, data: Dict, attachment_files: List[str] = None) -> bool:
+        """Send notification via email with optional attachments"""
         if not self.config.NOTIFICATION_EMAIL or not self.config.EMAIL_PASSWORD:
             print("Email not configured or password missing")
             return False
@@ -62,6 +65,23 @@ class NotificationSystem:
             body = self.format_notification_text(data)
             msg.attach(MIMEText(body, 'plain'))
             
+            # Add attachments if provided
+            if attachment_files:
+                for file_path in attachment_files:
+                    if os.path.exists(file_path):
+                        with open(file_path, "rb") as attachment:
+                            part = MIMEBase('application', 'octet-stream')
+                            part.set_payload(attachment.read())
+                            encoders.encode_base64(part)
+                            part.add_header(
+                                'Content-Disposition',
+                                f'attachment; filename= {os.path.basename(file_path)}'
+                            )
+                            msg.attach(part)
+                        print(f"✅ Added attachment: {file_path}")
+                    else:
+                        print(f"⚠️ Attachment file not found: {file_path}")
+            
             # Gmail SMTP configuration
             server = smtplib.SMTP(self.config.EMAIL_HOST, self.config.EMAIL_PORT)
             server.starttls()  # Enable security
@@ -72,7 +92,8 @@ class NotificationSystem:
             server.sendmail(self.config.EMAIL_USERNAME, self.config.NOTIFICATION_EMAIL, text)
             server.quit()
             
-            print(f"Email notification sent successfully to {self.config.NOTIFICATION_EMAIL}")
+            attachment_info = f" with {len(attachment_files)} attachment(s)" if attachment_files else ""
+            print(f"Email notification sent successfully to {self.config.NOTIFICATION_EMAIL}{attachment_info}")
             return True
             
         except Exception as e:
@@ -127,6 +148,11 @@ class NotificationSystem:
         sheets_url = data.get('sheets_url')
         if sheets_url:
             message += f"📋 View Full Report: {sheets_url}\n\n"
+        
+        # Add attachment information
+        message += "📎 Attachments:\n"
+        message += "- ai_words_export.csv (新词数据表格)\n"
+        message += "- ai_words_backup_*.json (完整备份数据)\n\n"
         
         # Add source information
         message += f"📄 Source: {data.get('source_url', 'Unknown')}\n"
@@ -216,7 +242,7 @@ class NotificationSystem:
         
         return message
     
-    def notify_success(self, words_data: List[Dict], summary_data: Dict, sheets_url: str = None, source_url: str = None) -> bool:
+    def notify_success(self, words_data: List[Dict], summary_data: Dict, sheets_url: str = None, source_url: str = None, attachment_files: List[str] = None) -> bool:
         """Send success notification"""
         notification_data = {
             'status': 'success',
@@ -234,13 +260,13 @@ class NotificationSystem:
         if not self.send_webhook_notification(notification_data):
             success = False
         
-        # Send email notification
-        if not self.send_email_notification(notification_data):
+        # Send email notification with attachments
+        if not self.send_email_notification(notification_data, attachment_files):
             success = False
         
         return success
     
-    def notify_error(self, error_message: str, stage: str = None, partial_results: Dict = None) -> bool:
+    def notify_error(self, error_message: str, stage: str = None, partial_results: Dict = None, attachment_files: List[str] = None) -> bool:
         """Send error notification"""
         notification_data = {
             'status': 'error',
@@ -256,13 +282,13 @@ class NotificationSystem:
         if not self.send_webhook_notification(notification_data):
             success = False
         
-        # Send email notification
-        if not self.send_email_notification(notification_data):
+        # Send email notification with attachments
+        if not self.send_email_notification(notification_data, attachment_files):
             success = False
         
         return success
     
-    def notify_warning(self, warnings: List[str], summary_data: Dict = None) -> bool:
+    def notify_warning(self, warnings: List[str], summary_data: Dict = None, attachment_files: List[str] = None) -> bool:
         """Send warning notification"""
         notification_data = {
             'status': 'warning',
@@ -277,8 +303,8 @@ class NotificationSystem:
         if not self.send_webhook_notification(notification_data):
             success = False
         
-        # Send email notification
-        if not self.send_email_notification(notification_data):
+        # Send email notification with attachments
+        if not self.send_email_notification(notification_data, attachment_files):
             success = False
         
         return success

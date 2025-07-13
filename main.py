@@ -488,9 +488,27 @@ AI Words Mining System
         print("📬 Sending completion notification...")
         
         try:
+            # Prepare attachment files
+            attachment_files = []
+            
+            # Add CSV file if it exists
+            csv_file = "ai_words_export.csv"
+            if os.path.exists(csv_file):
+                attachment_files.append(csv_file)
+                print(f"📎 Will attach CSV file: {csv_file}")
+            
+            # Add backup JSON file if it exists
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            json_files = [f for f in os.listdir('.') if f.startswith('ai_words_backup_') and f.endswith('.json')]
+            if json_files:
+                # Use the most recent backup file
+                latest_backup = max(json_files, key=lambda f: os.path.getmtime(f))
+                attachment_files.append(latest_backup)
+                print(f"📎 Will attach backup file: {latest_backup}")
+            
             # Determine notification type based on results
             if self.stats['errors']:
-                # Send error notification
+                # Send error notification with attachments
                 error_msg = "; ".join(self.stats['errors'])
                 self.notification_system.notify_error(
                     error_msg, 
@@ -498,18 +516,20 @@ AI Words Mining System
                     {
                         'scraped_count': self.stats['scraped_tools'],
                         'processed_count': self.stats['processed_words']
-                    }
+                    },
+                    attachment_files
                 )
             elif self.stats['warnings']:
-                # Send warning notification
-                self.notification_system.notify_warning(self.stats['warnings'], summary_data)
+                # Send warning notification with attachments
+                self.notification_system.notify_warning(self.stats['warnings'], summary_data, attachment_files)
             else:
-                # Send success notification
+                # Send success notification with attachments
                 self.notification_system.notify_success(
                     words_data, 
                     summary_data, 
                     sheets_url, 
-                    self.config.TARGET_URL
+                    self.config.TARGET_URL,
+                    attachment_files
                 )
             
             self.stats['notifications_sent'] = True
