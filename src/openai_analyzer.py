@@ -90,71 +90,71 @@ class OpenAIAnalyzer:
     
     def get_system_prompt(self) -> str:
         """Get the system prompt for OpenAI"""
-        return """你是一个新词发现专家，专门从AI/技术内容中发现真正的新兴概念和术语。你的目标是找到适合Google Trends分析和建新词网站的概念性词汇。
+        return """You are an expert in discovering emerging English terminology from AI/technology content. Your goal is to identify conceptual vocabulary suitable for Google Trends analysis and new word website development.
 
-⚠️ 重要：请严格避免以下内容：
-- 公司名称（如OpenAI、Google、Microsoft等）
-- 具体产品名称（如ChatGPT、Claude、Midjourney等）
-- 软件工具名称（如LangChain、Hugging Face等）
-- 已确立的技术术语（如深度学习、神经网络、机器学习等）
-- 版本号和型号（如GPT-4、V6等）
+⚠️ IMPORTANT - Strictly avoid the following:
+- Company names (e.g., OpenAI, Google, Microsoft, Anthropic)
+- Specific product names (e.g., ChatGPT, Claude, Midjourney, DALL-E)
+- Software tool names (e.g., LangChain, Hugging Face, TensorFlow)
+- Established technical terms (e.g., deep learning, neural networks, machine learning)
+- Version numbers and model names (e.g., GPT-4, V6, XL, Pro)
 
-✅ 重点识别以下类型的新兴概念：
-1. **新兴技术概念**：最近2年内出现的技术现象和方法论
-2. **行业新术语**：AI领域内正在形成的概念性词汇
-3. **技术趋势词汇**：描述新技术发展方向的概念
-4. **应用场景新词**：新的应用领域和使用方式
-5. **方法论新词**：新的工作流程、方法或框架概念
+✅ FOCUS on identifying these types of emerging English concepts:
+1. **Emerging Technical Concepts**: Technology phenomena and methodologies that appeared in the last 2 years
+2. **New Industry Terminology**: Conceptual vocabulary forming within the AI field
+3. **Technology Trend Vocabulary**: Concepts describing new technology development directions
+4. **Application Scenario Terms**: New application domains and usage patterns
+5. **Methodological Terms**: New workflows, methods, or framework concepts
 
-🎯 评估标准：
-- 概念性：是概念而非产品
-- 新颖性：2年内出现或流行
-- 搜索价值：适合Google Trends分析
-- 建站价值：可以围绕此概念建立网站
-- 趋势性：有增长和传播潜力
+🎯 Evaluation Criteria:
+- Conceptual: Must be a concept, not a product
+- Novelty: Emerged or became popular within 2 years
+- Search Value: Suitable for Google Trends analysis
+- Business Value: Can build a website around this concept
+- Trending: Has growth and viral potential
 
-请以下列JSON格式返回分析结果：
+Return results ONLY in English using this JSON format:
 {
   "new_words": [
     {
-      "word": "概念性词汇或术语",
-      "category": "类别 (如：'新兴技术', '应用概念', '方法论', '行业趋势')",
-      "definition": "概念的详细定义和含义",
-      "context": "在描述中的具体体现",
+      "word": "English conceptual term or phrase",
+      "category": "Category (e.g., 'Emerging Technology', 'Application Concept', 'Methodology', 'Industry Trend')",
+      "definition": "Detailed definition and meaning of the concept",
+      "context": "How it appears in the description",
       "importance": "high/medium/low",
-      "trend_potential": "1-10分，评估Google Trends搜索潜力",
-      "business_value": "high/medium/low，评估建站商业价值",
-      "is_emerging": "true/false，是否为新兴概念"
+      "trend_potential": "1-10 score for Google Trends search potential",
+      "business_value": "high/medium/low for website development value",
+      "is_emerging": "true/false for whether it's an emerging concept"
     }
   ]
 }"""
     
     def create_analysis_prompt(self, tools_text: str) -> str:
         """Create the analysis prompt for OpenAI"""
-        return f"""请分析以下AI工具描述，从中识别新兴概念和技术术语。请忽略具体的产品名称，专注于发现概念性词汇：
+        return f"""Analyze the following AI tool descriptions and identify emerging English concepts and technical terminology. Ignore specific product names and focus on discovering conceptual vocabulary:
 
 {tools_text}
 
-🔍 分析重点：
-1. 从工具描述中识别新兴技术概念（而非工具名称）
-2. 发现新的应用场景和使用方式
-3. 提取描述新技术方法的概念性词汇
-4. 识别正在形成的行业新术语
-5. 寻找具有Google Trends搜索价值的概念
+🔍 ANALYSIS FOCUS:
+1. Identify emerging technical concepts from tool descriptions (not tool names)
+2. Discover new application scenarios and usage patterns
+3. Extract conceptual vocabulary describing new technical methods
+4. Identify forming industry terminology
+5. Find concepts with Google Trends search value
 
-⚠️ 请严格避免：
-- 不要提取具体的产品名称或工具名称
-- 不要包含公司名称或品牌
-- 不要提取已确立的技术术语
-- 不要包含版本号或型号
+⚠️ STRICTLY AVOID:
+- Do not extract specific product names or tool names
+- Do not include company names or brands
+- Do not extract established technical terms
+- Do not include version numbers or model identifiers
 
-✅ 专注提取：
-- 新兴技术概念和现象
-- 应用场景的新术语
-- 方法论相关的概念
-- 行业发展趋势词汇
+✅ FOCUS ON EXTRACTING:
+- Emerging technical concepts and phenomena
+- New terminology for application scenarios
+- Methodology-related concepts
+- Industry development trend vocabulary
 
-请按照指定的JSON格式返回结果，每个词汇都应该是概念性的，适合Google Trends分析和建站使用。"""
+Return results in the specified JSON format. Each term should be conceptual, suitable for Google Trends analysis and website development. RESPOND ONLY IN ENGLISH."""
     
     def parse_openai_response(self, response: str) -> List[Dict]:
         """Parse OpenAI response and extract new words"""
