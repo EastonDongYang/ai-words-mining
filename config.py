@@ -29,32 +29,32 @@ class Config:
     # Site-specific configuration
     SITE_CONFIGS: dict = {
         'toolify.ai': {
-            'enabled': True,  # 重新启用，测试修复后的Chrome WebDriver
-            'max_items': 20,  # 减少数量以加快测试
+            'enabled': True,
+            'max_items': 30,  # 增加数量
             'delay': 2,
             'use_selenium': True
         },
         'producthunt.com': {
-            'enabled': True,  # 启用Product Hunt
-            'max_items': 15,
+            'enabled': True,
+            'max_items': 25,  # 增加数量
             'delay': 3,
             'use_selenium': True
         },
         'futuretools.io': {
-            'enabled': False,  # 暂时禁用，先测试其他网站
-            'max_items': 20,
+            'enabled': True,  # 启用Future Tools
+            'max_items': 25,
             'delay': 2,
             'use_selenium': True
         },
         'betalist.com': {
             'enabled': True,
-            'max_items': 10,  # 减少数量以加快测试
+            'max_items': 20,  # 增加数量
             'delay': 2,
             'use_selenium': False
         },
         'explodingtopics.com': {
-            'enabled': False,  # 暂时禁用，先测试其他网站
-            'max_items': 10,
+            'enabled': True,  # 启用Exploding Topics
+            'max_items': 15,
             'delay': 3,
             'use_selenium': True
         }
@@ -80,7 +80,7 @@ class Config:
     
     # Multi-site scraping configuration
     ENABLE_MULTI_SITE: bool = os.getenv('ENABLE_MULTI_SITE', 'true').lower() == 'true'
-    MAX_TOTAL_ITEMS: int = int(os.getenv('MAX_TOTAL_ITEMS', '200'))
+    MAX_TOTAL_ITEMS: int = int(os.getenv('MAX_TOTAL_ITEMS', '500'))  # 增加总数限制
     
     @classmethod
     def get_enabled_sites(cls) -> List[str]:

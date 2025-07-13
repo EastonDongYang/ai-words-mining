@@ -1,155 +1,169 @@
 #!/usr/bin/env python3
 """
-测试多网站爬虫功能
-Test Multi-Site Scraping Functionality
+测试多网站爬取功能
 """
 
 import sys
 import os
 from datetime import datetime
 
-# 添加src目录到Python路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Add src directory to path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from config import Config
 from src.multi_site_scraper import MultiSiteScraper
 
-def test_multi_site_scraping():
-    """测试多网站爬虫功能"""
-    print("🧪 开始测试多网站爬虫功能...")
-    print("=" * 60)
+def test_individual_sites():
+    """测试单个网站的爬取效果"""
+    print("🧪 测试单个网站爬取功能...")
     
-    try:
-        # 创建配置和爬虫实例
-        config = Config()
-        scraper = MultiSiteScraper()
-        
-        # 打印配置信息
-        print("📋 配置信息：")
-        print(f"  多网站爬虫启用: {config.ENABLE_MULTI_SITE}")
-        print(f"  目标网站数量: {len(config.TARGET_URLS)}")
-        print(f"  最大总数量: {config.MAX_TOTAL_ITEMS}")
-        print(f"  调试模式: {config.DEBUG_MODE}")
-        print()
-        
-        # 打印要爬取的网站
-        print("🌐 目标网站列表：")
-        for i, url in enumerate(config.TARGET_URLS, 1):
-            print(f"  {i}. {url}")
-        print()
-        
-        # 打印启用的网站配置
-        print("⚙️ 网站配置：")
-        for site in config.get_enabled_sites():
-            site_config = config.get_site_config(site)
-            print(f"  {site}:")
-            print(f"    - 启用: {site_config.get('enabled', True)}")
-            print(f"    - 最大数量: {site_config.get('max_items', 30)}")
-            print(f"    - 延迟: {site_config.get('delay', 2)}秒")
-            print(f"    - 使用Selenium: {site_config.get('use_selenium', True)}")
-        print()
-        
-        # 开始爬取测试
-        print("🚀 开始爬取测试...")
-        start_time = datetime.now()
-        
-        # 执行爬取
-        all_tools = scraper.scrape_all_sites()
-        
-        end_time = datetime.now()
-        execution_time = end_time - start_time
-        
-        # 分析结果
-        print(f"⏱️ 爬取耗时: {execution_time}")
-        print(f"📊 总共获取: {len(all_tools)} 个工具/产品")
-        
-        if all_tools:
-            # 按来源分组统计
-            source_stats = {}
-            for tool in all_tools:
-                source = tool.get('source', 'unknown')
-                source_stats[source] = source_stats.get(source, 0) + 1
+    config = Config()
+    scraper = MultiSiteScraper()
+    
+    # 显示配置信息
+    print(f"\n📋 配置信息:")
+    print(f"  - 多网站爬取: {config.ENABLE_MULTI_SITE}")
+    print(f"  - 总数限制: {config.MAX_TOTAL_ITEMS}")
+    print(f"  - 目标网站数: {len(config.TARGET_URLS)}")
+    print(f"  - 启用的网站: {len(config.get_enabled_sites())}")
+    
+    results = {}
+    
+    for url in config.TARGET_URLS:
+        try:
+            from urllib.parse import urlparse
+            site_domain = urlparse(url).netloc
+            site_config = config.get_site_config(site_domain)
             
-            print("\n📈 来源统计:")
-            for source, count in sorted(source_stats.items()):
-                print(f"  - {source}: {count} 个")
+            print(f"\n🕷️ 测试 {site_domain}...")
+            print(f"  - URL: {url}")
+            print(f"  - 启用状态: {'✅' if site_config.get('enabled', True) else '❌'}")
+            print(f"  - 最大项目数: {site_config.get('max_items', 30)}")
+            print(f"  - 使用Selenium: {'✅' if site_config.get('use_selenium', True) else '❌'}")
             
-            # 显示前10个工具示例
-            print("\n🔍 前10个工具示例:")
-            for i, tool in enumerate(all_tools[:10], 1):
-                print(f"  {i}. {tool.get('name', 'Unknown')}")
-                print(f"     来源: {tool.get('source', 'unknown')}")
-                print(f"     描述: {tool.get('description', 'No description')[:100]}...")
-                print(f"     类别: {', '.join(tool.get('categories', []))}")
-                print()
+            if not site_config.get('enabled', True):
+                print(f"  ⚠️ 网站已禁用，跳过")
+                results[site_domain] = {'status': 'disabled', 'count': 0}
+                continue
             
-            # 保存结果
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"test_multi_site_results_{timestamp}.json"
-            scraper.save_results(all_tools, filename)
+            # 尝试爬取
+            start_time = datetime.now()
+            tools = scraper.scrape_site(url, site_config)
+            end_time = datetime.now()
             
-            print(f"✅ 测试完成！结果已保存到: {filename}")
-            return True
-        else:
-            print("❌ 没有获取到任何数据")
-            return False
+            execution_time = (end_time - start_time).total_seconds()
             
-    except Exception as e:
-        print(f"❌ 测试失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+            if tools:
+                print(f"  ✅ 成功爬取 {len(tools)} 个项目 (耗时: {execution_time:.2f}秒)")
+                results[site_domain] = {
+                    'status': 'success', 
+                    'count': len(tools),
+                    'execution_time': execution_time,
+                    'sample_items': tools[:3]  # 保存前3个样本
+                }
+            else:
+                print(f"  ❌ 未找到任何项目 (耗时: {execution_time:.2f}秒)")
+                results[site_domain] = {
+                    'status': 'no_data', 
+                    'count': 0,
+                    'execution_time': execution_time
+                }
+                
+        except Exception as e:
+            print(f"  ❌ 爬取失败: {e}")
+            results[site_domain] = {'status': 'error', 'count': 0, 'error': str(e)}
+    
+    return results
 
-def test_single_site():
-    """测试单个网站爬取"""
-    print("\n🧪 测试单个网站爬取...")
+def test_multi_site_scraping():
+    """测试多网站综合爬取"""
+    print("\n🌐 测试多网站综合爬取...")
+    
+    scraper = MultiSiteScraper()
     
     try:
-        config = Config()
-        scraper = MultiSiteScraper()
+        start_time = datetime.now()
+        all_tools = scraper.scrape_all_sites()
+        end_time = datetime.now()
         
-        # 测试第一个网站
-        test_url = config.TARGET_URLS[0]
-        print(f"🔗 测试网站: {test_url}")
+        execution_time = (end_time - start_time).total_seconds()
         
-        from urllib.parse import urlparse
-        site_domain = urlparse(test_url).netloc
-        site_config = config.get_site_config(site_domain)
+        print(f"\n📊 综合爬取结果:")
+        print(f"  - 总项目数: {len(all_tools)}")
+        print(f"  - 总耗时: {execution_time:.2f}秒")
+        print(f"  - 平均每项耗时: {execution_time/len(all_tools):.2f}秒" if all_tools else "  - 无数据")
         
-        tools = scraper.scrape_site(test_url, site_config)
+        # 按来源统计
+        source_stats = {}
+        for tool in all_tools:
+            source = tool.get('source', 'unknown')
+            source_stats[source] = source_stats.get(source, 0) + 1
         
-        if tools:
-            print(f"✅ 成功获取 {len(tools)} 个工具")
-            print("📝 示例工具:")
-            for i, tool in enumerate(tools[:3], 1):
-                print(f"  {i}. {tool.get('name', 'Unknown')}")
-                print(f"     描述: {tool.get('description', 'No description')[:80]}...")
-        else:
-            print("⚠️ 没有获取到工具")
-            
+        print(f"\n📈 按来源统计:")
+        for source, count in sorted(source_stats.items(), key=lambda x: x[1], reverse=True):
+            print(f"  - {source}: {count} 个项目")
+        
+        return all_tools
+        
     except Exception as e:
-        print(f"❌ 单网站测试失败: {e}")
+        print(f"❌ 多网站爬取失败: {e}")
+        return []
+
+def analyze_results(individual_results, multi_site_results):
+    """分析爬取结果"""
+    print("\n📋 结果分析:")
+    
+    # 统计各网站状态
+    enabled_count = sum(1 for r in individual_results.values() if r['status'] != 'disabled')
+    success_count = sum(1 for r in individual_results.values() if r['status'] == 'success')
+    failed_count = sum(1 for r in individual_results.values() if r['status'] in ['error', 'no_data'])
+    
+    print(f"  - 启用的网站: {enabled_count}")
+    print(f"  - 成功爬取: {success_count}")
+    print(f"  - 失败/无数据: {failed_count}")
+    print(f"  - 综合结果: {len(multi_site_results)} 个项目")
+    
+    # 识别问题网站
+    problem_sites = []
+    for site, result in individual_results.items():
+        if result['status'] in ['error', 'no_data']:
+            problem_sites.append(site)
+    
+    if problem_sites:
+        print(f"\n⚠️ 需要关注的网站:")
+        for site in problem_sites:
+            result = individual_results[site]
+            print(f"  - {site}: {result['status']}")
+            if 'error' in result:
+                print(f"    错误信息: {result['error']}")
 
 def main():
-    """主测试函数"""
-    print("🎯 多网站爬虫测试套件")
-    print("=" * 60)
+    """主函数"""
+    print("🚀 开始多网站爬取测试...")
+    print("="*60)
     
-    # 测试多网站爬取
-    success = test_multi_site_scraping()
+    try:
+        # 测试单个网站
+        individual_results = test_individual_sites()
+        
+        # 测试综合爬取
+        multi_site_results = test_multi_site_scraping()
+        
+        # 分析结果
+        analyze_results(individual_results, multi_site_results)
+        
+        print("\n✅ 测试完成!")
+        print("\n💡 建议:")
+        print("1. 检查失败的网站，可能需要更新爬虫逻辑")
+        print("2. 如果数据量仍然不足，可以调整max_items配置")
+        print("3. 考虑添加更多目标网站")
+        print("4. 检查网络连接和Chrome WebDriver设置")
+        
+    except Exception as e:
+        print(f"❌ 测试失败: {e}")
+        return False
     
-    # 测试单网站爬取
-    test_single_site()
-    
-    print("\n" + "=" * 60)
-    if success:
-        print("🎉 所有测试完成！")
-        print("💡 提示: 查看生成的JSON文件获取详细结果")
-    else:
-        print("⚠️ 测试过程中遇到问题，请检查网络连接和配置")
-    
-    return success
+    return True
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1) 
+    main() 

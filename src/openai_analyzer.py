@@ -90,48 +90,71 @@ class OpenAIAnalyzer:
     
     def get_system_prompt(self) -> str:
         """Get the system prompt for OpenAI"""
-        return """你是一个AI专家，专门分析AI工具并从AI/技术行业中提取新术语、概念和流行语。你的任务是识别：
+        return """你是一个新词发现专家，专门从AI/技术内容中发现真正的新兴概念和术语。你的目标是找到适合Google Trends分析和建新词网站的概念性词汇。
 
-1. 新的或新兴的AI术语、概念和流行语
-2. 可能正在流行的技术术语
-3. 提到的产品名称、技术或方法
-4. 行业术语和专业词汇
+⚠️ 重要：请严格避免以下内容：
+- 公司名称（如OpenAI、Google、Microsoft等）
+- 具体产品名称（如ChatGPT、Claude、Midjourney等）
+- 软件工具名称（如LangChain、Hugging Face等）
+- 已确立的技术术语（如深度学习、神经网络、机器学习等）
+- 版本号和型号（如GPT-4、V6等）
 
-重点关注以下术语：
-- 在AI领域相对较新或新兴的
-- 技术性或专业术语
-- 行业中的流行词汇
-- 特定AI技术、模型或方法的名称
+✅ 重点识别以下类型的新兴概念：
+1. **新兴技术概念**：最近2年内出现的技术现象和方法论
+2. **行业新术语**：AI领域内正在形成的概念性词汇
+3. **技术趋势词汇**：描述新技术发展方向的概念
+4. **应用场景新词**：新的应用领域和使用方式
+5. **方法论新词**：新的工作流程、方法或框架概念
 
-避免常见词汇、通用术语和已确立的词汇。
+🎯 评估标准：
+- 概念性：是概念而非产品
+- 新颖性：2年内出现或流行
+- 搜索价值：适合Google Trends分析
+- 建站价值：可以围绕此概念建立网站
+- 趋势性：有增长和传播潜力
 
 请以下列JSON格式返回分析结果：
 {
   "new_words": [
     {
-      "word": "术语或短语",
-      "category": "类别 (例如：'AI模型', '技术', '方法', '流行语')",
-      "definition": "简短定义或解释",
-      "context": "在哪里/如何提到的",
-      "importance": "high/medium/low"
+      "word": "概念性词汇或术语",
+      "category": "类别 (如：'新兴技术', '应用概念', '方法论', '行业趋势')",
+      "definition": "概念的详细定义和含义",
+      "context": "在描述中的具体体现",
+      "importance": "high/medium/low",
+      "trend_potential": "1-10分，评估Google Trends搜索潜力",
+      "business_value": "high/medium/low，评估建站商业价值",
+      "is_emerging": "true/false，是否为新兴概念"
     }
   ]
 }"""
     
     def create_analysis_prompt(self, tools_text: str) -> str:
         """Create the analysis prompt for OpenAI"""
-        return f"""请分析以下AI工具并提取新词汇、术语、概念和流行语：
+        return f"""请分析以下AI工具描述，从中识别新兴概念和技术术语。请忽略具体的产品名称，专注于发现概念性词汇：
 
 {tools_text}
 
-请识别并提取：
-1. 新的或新兴的AI术语
-2. 技术流行语和术语
-3. 产品名称和技术
-4. 方法和概念
-5. 行业专用词汇
+🔍 分析重点：
+1. 从工具描述中识别新兴技术概念（而非工具名称）
+2. 发现新的应用场景和使用方式
+3. 提取描述新技术方法的概念性词汇
+4. 识别正在形成的行业新术语
+5. 寻找具有Google Trends搜索价值的概念
 
-请按照指定的JSON格式返回结果。"""
+⚠️ 请严格避免：
+- 不要提取具体的产品名称或工具名称
+- 不要包含公司名称或品牌
+- 不要提取已确立的技术术语
+- 不要包含版本号或型号
+
+✅ 专注提取：
+- 新兴技术概念和现象
+- 应用场景的新术语
+- 方法论相关的概念
+- 行业发展趋势词汇
+
+请按照指定的JSON格式返回结果，每个词汇都应该是概念性的，适合Google Trends分析和建站使用。"""
     
     def parse_openai_response(self, response: str) -> List[Dict]:
         """Parse OpenAI response and extract new words"""
@@ -153,6 +176,9 @@ class OpenAIAnalyzer:
                                 'definition': word_data.get('definition', ''),
                                 'context': word_data.get('context', ''),
                                 'importance': word_data.get('importance', 'medium'),
+                                'trend_potential': word_data.get('trend_potential', 5),
+                                'business_value': word_data.get('business_value', 'medium'),
+                                'is_emerging': word_data.get('is_emerging', False),
                                 'extracted_at': time.strftime('%Y-%m-%d %H:%M:%S')
                             })
             
@@ -174,7 +200,7 @@ class OpenAIAnalyzer:
         if word in self.extracted_words:
             return False
         
-        # Skip common stop words
+        # Skip common stop words and established terms
         stop_words = {
             'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
             'ai', 'artificial', 'intelligence', 'machine', 'learning', 'deep', 'neural',
@@ -185,8 +211,36 @@ class OpenAIAnalyzer:
         if word in stop_words:
             return False
         
+        # Skip known product names and tools
+        product_names = {
+            'chatgpt', 'claude', 'midjourney', 'dall-e', 'stable diffusion', 'gpt-4', 'gpt-3',
+            'openai', 'anthropic', 'google', 'microsoft', 'hugging face', 'langchain',
+            'tensorflow', 'pytorch', 'keras', 'scikit-learn', 'jupyter', 'github',
+            'discord', 'slack', 'notion', 'figma', 'canva', 'photoshop', 'premiere',
+            'after effects', 'blender', 'unity', 'unreal', 'chrome', 'firefox', 'safari'
+        }
+        
+        if word in product_names:
+            return False
+        
+        # Skip words with version numbers or model numbers
+        if re.search(r'[v]\d+', word) or re.search(r'gpt-\d+', word):
+            return False
+        
         # Skip very short words (less than 3 characters)
         if len(word) < 3:
+            return False
+        
+        # Skip words that are clearly product names (contain version info or brand indicators)
+        if any(indicator in word for indicator in ['xl', 'pro', 'plus', 'beta', 'alpha', 'v1', 'v2']):
+            return False
+        
+        # Prefer words that indicate they are emerging concepts
+        trend_potential = word_data.get('trend_potential', 5)
+        is_emerging = word_data.get('is_emerging', False)
+        
+        # Skip if trend potential is too low
+        if trend_potential < 4:
             return False
         
         # Add to extracted words set
@@ -195,7 +249,7 @@ class OpenAIAnalyzer:
         return True
     
     def filter_and_rank_words(self, words_data: List[Dict]) -> List[Dict]:
-        """Filter and rank words by importance and novelty"""
+        """Filter and rank words by importance, trend potential, and business value"""
         if not words_data:
             return []
         
@@ -206,15 +260,33 @@ class OpenAIAnalyzer:
             if word not in unique_words:
                 unique_words[word] = word_data
         
-        # Convert back to list and sort by importance
+        # Convert back to list
         filtered_words = list(unique_words.values())
         
-        # Sort by importance (high > medium > low)
-        importance_order = {'high': 3, 'medium': 2, 'low': 1}
-        filtered_words.sort(
-            key=lambda x: importance_order.get(x.get('importance', 'medium'), 2),
-            reverse=True
-        )
+        # Calculate ranking score for each word
+        for word_data in filtered_words:
+            score = 0
+            
+            # Importance weight (30%)
+            importance_weights = {'high': 3, 'medium': 2, 'low': 1}
+            score += importance_weights.get(word_data.get('importance', 'medium'), 2) * 30
+            
+            # Trend potential weight (40%)
+            trend_potential = word_data.get('trend_potential', 5)
+            score += trend_potential * 4
+            
+            # Business value weight (20%)
+            business_value_weights = {'high': 3, 'medium': 2, 'low': 1}
+            score += business_value_weights.get(word_data.get('business_value', 'medium'), 2) * 20
+            
+            # Emerging concept bonus (10%)
+            if word_data.get('is_emerging', False):
+                score += 10
+            
+            word_data['ranking_score'] = score
+        
+        # Sort by ranking score (descending)
+        filtered_words.sort(key=lambda x: x.get('ranking_score', 0), reverse=True)
         
         return filtered_words
     
