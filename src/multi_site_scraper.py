@@ -193,8 +193,12 @@ class MultiSiteScraper:
         
         try:
             driver = self.setup_driver()
+            
+            if self.config.DEBUG_MODE:
+                print(f"Loading Product Hunt page: {url}")
+                
             driver.get(url)
-            time.sleep(4)
+            time.sleep(5)  # 增加等待时间
             
             # Accept cookies if present
             try:
@@ -205,39 +209,79 @@ class MultiSiteScraper:
             except:
                 pass
             
-            # Scroll to load more content
-            for i in range(2):
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(3)
+            # 检查页面标题
+            if self.config.DEBUG_MODE:
+                print(f"Page title: {driver.title}")
             
-            # Find product elements
+            # Scroll to load more content
+            for i in range(3):
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(2)
+            
+            # Find product elements using the correct selector from debugging
             selectors = [
-                '[data-test="homepage-section-item"]',
-                '[data-test="product-item"]',
-                '.styles_item__1Z1Sy',
-                '.styles_productItem__1ZzOE'
+                '[data-test*="product"]',  # 调试发现的最佳选择器
+                '[data-test*="item"]',
+                'div[class*="styles_item"]',
+                'div[class*="styles_product"]',
+                'div[class*="item"]',
+                'div[class*="card"]',
+                'article',
+                'li[class*="item"]'
             ]
             
             elements = []
+            best_selector = None
+            
             for selector in selectors:
                 try:
-                    elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                    if len(elements) > 3:
-                        break
+                    found_elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                    if found_elements and len(found_elements) > len(elements):
+                        elements = found_elements
+                        best_selector = selector
+                        if self.config.DEBUG_MODE:
+                            print(f"Found {len(elements)} elements with selector: {selector}")
+                        if len(elements) >= 10:  # 找到足够的元素就停止
+                            break
                 except:
                     continue
             
-            max_items = site_config.get('max_items', 30)
+            if not elements:
+                if self.config.DEBUG_MODE:
+                    print("No product elements found, trying fallback selectors...")
+                # 尝试备用选择器
+                fallback_selectors = ['div', 'li', 'article', 'section']
+                for selector in fallback_selectors:
+                    try:
+                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                        if len(elements) > 20:
+                            elements = elements[:50]  # 限制数量
+                            break
+                    except:
+                        continue
+            
+            if self.config.DEBUG_MODE:
+                print(f"Total elements found: {len(elements)} using selector: {best_selector}")
+            
+            max_items = site_config.get('max_items', 25)
             for element in elements[:max_items]:
                 try:
                     tool = self.extract_producthunt_data(element)
                     if tool:
                         tools.append(tool)
-                except:
+                except Exception as e:
+                    if self.config.DEBUG_MODE:
+                        print(f"Error extracting product data: {e}")
                     continue
+            
+            if self.config.DEBUG_MODE:
+                print(f"Successfully extracted {len(tools)} products from Product Hunt")
             
         except Exception as e:
             print(f"Error scraping Product Hunt: {e}")
+            if self.config.DEBUG_MODE:
+                import traceback
+                traceback.print_exc()
         finally:
             if driver:
                 driver.quit()
@@ -528,35 +572,157 @@ class MultiSiteScraper:
     def extract_producthunt_data(self, element) -> Optional[Dict]:
         """Extract data from Product Hunt element"""
         try:
-            # Extract name
+            # 首先尝试获取完整文本
+            full_text = element.text.strip()
+            
+            if self.config.DEBUG_MODE:
+                print(f"Processing element with text: {full_text[:100]}...")
+            
+            # Product Hunt的格式通常是: "产品名称 — 产品描述"
             name = ""
-            for selector in ["h3", "h4", ".title", "[data-test='product-name']"]:
-                try:
-                    name_elem = element.find_element(By.CSS_SELECTOR, selector)
-                    name = name_elem.text.strip()
-                    if name and len(name) > 2:
-                        break
-                except:
-                    continue
-            
-            # Extract description
             description = ""
-            for selector in ["p", ".description", "[data-test='product-description']"]:
-                try:
-                    desc_elem = element.find_element(By.CSS_SELECTOR, selector)
-                    description = desc_elem.text.strip()
-                    if description and len(description) > 10:
-                        break
-                except:
-                    continue
             
-            if name and len(name) > 2:
-                return {
-                    'name': name,
-                    'description': description or "Product description not available",
-                    'categories': ['Product Hunt'],
-                    'source': 'producthunt.com'
-                }
+            # 尝试从完整文本中解析产品名称和描述
+            if full_text and len(full_text) > 5:
+                # 检查是否包含 "—" 分隔符
+                if " — " in full_text:
+                    parts = full_text.split(" — ", 1)
+                    if len(parts) >= 2:
+                        name = parts[0].strip()
+                        description = parts[1].strip()
+                        
+                        # 清理描述中的尾随内容
+                        if description.endswith('...'):
+                            description = description[:-3].strip()
+                        
+                        if self.config.DEBUG_MODE:
+                            print(f"Parsed from full text - Name: {name}, Desc: {description[:50]}...")
+                
+                # 如果没有找到 "—" 分隔符，尝试其他方法
+                if not name and len(full_text) > 0:
+                    # 尝试从HTML元素中提取
+                    name_selectors = [
+                        "h3", "h4", "h2", "h1", "h5", "h6",
+                        ".title", ".name", 
+                        "[data-test*='name']", "[data-test*='title']",
+                        "strong", "b", "a"
+                    ]
+                    
+                    for selector in name_selectors:
+                        try:
+                            name_elem = element.find_element(By.CSS_SELECTOR, selector)
+                            candidate_name = name_elem.text.strip()
+                            
+                            if candidate_name and len(candidate_name) > 2 and len(candidate_name) < 200:
+                                # 排除干扰词汇
+                                exclude_words = ['share', 'notify', 'coming soon', 'learn more', 'artificial intelligence', 'product hunt', 'read more']
+                                if not any(word in candidate_name.lower() for word in exclude_words):
+                                    name = candidate_name
+                                    if self.config.DEBUG_MODE:
+                                        print(f"Found name using selector {selector}: {name}")
+                                    break
+                        except:
+                            continue
+                    
+                    # 如果还是没有找到名称，尝试从完整文本的第一行提取
+                    if not name:
+                        lines = full_text.split('\n')
+                        if lines:
+                            first_line = lines[0].strip()
+                            if first_line and len(first_line) > 2 and len(first_line) < 200:
+                                # 如果第一行包含 "—"，只取前半部分
+                                if " — " in first_line:
+                                    name = first_line.split(" — ")[0].strip()
+                                else:
+                                    name = first_line
+                                
+                                if self.config.DEBUG_MODE:
+                                    print(f"Extracted name from first line: {name}")
+                    
+                    # 如果没有描述，尝试从HTML元素中提取
+                    if not description:
+                        desc_selectors = [
+                            "p", ".description", ".desc", ".summary", ".tagline",
+                            "[data-test*='description']", "[data-test*='desc']",
+                            "span", "div"
+                        ]
+                        
+                        for selector in desc_selectors:
+                            try:
+                                desc_elements = element.find_elements(By.CSS_SELECTOR, selector)
+                                for desc_elem in desc_elements:
+                                    candidate_desc = desc_elem.text.strip()
+                                    
+                                    if candidate_desc and len(candidate_desc) > 10 and len(candidate_desc) < 500:
+                                        # 排除干扰词汇和重复的名称
+                                        exclude_words = ['share', 'notify me', 'coming soon', 'learn more', 'read more', 'click here']
+                                        if not any(word in candidate_desc.lower() for word in exclude_words):
+                                            if candidate_desc != name:  # 描述不应该和名称相同
+                                                description = candidate_desc
+                                                if self.config.DEBUG_MODE:
+                                                    print(f"Found description: {description[:50]}...")
+                                                break
+                                if description:
+                                    break
+                            except:
+                                continue
+                        
+                        # 如果还是没有描述，尝试从完整文本的其他部分提取
+                        if not description and len(full_text) > len(name) + 10:
+                            # 尝试从 "—" 后面的内容提取
+                            if " — " in full_text:
+                                desc_part = full_text.split(" — ", 1)[1].strip()
+                                if desc_part:
+                                    description = desc_part
+                            else:
+                                # 尝试从换行后的内容提取
+                                lines = full_text.split('\n')
+                                if len(lines) > 1:
+                                    for line in lines[1:]:
+                                        line = line.strip()
+                                        if line and len(line) > 10:
+                                            description = line
+                                            break
+            
+            # 验证数据质量
+            if not name or len(name) < 2:
+                if self.config.DEBUG_MODE:
+                    print(f"Skipping - invalid name: '{name}'")
+                return None
+            
+            # 清理名称中的特殊字符
+            name = name.replace('—', '-').replace('–', '-').strip()
+            
+            # 如果没有描述，设置默认值
+            if not description:
+                description = "Product description not available"
+                
+            # 清理描述
+            description = description.replace('...', '').strip()
+            
+            # 提取类别
+            categories = ['Product Hunt']
+            
+            # 尝试提取链接
+            link = ""
+            try:
+                link_elem = element.find_element(By.CSS_SELECTOR, "a")
+                link = link_elem.get_attribute("href")
+                if link and not link.startswith('http'):
+                    link = f"https://www.producthunt.com{link}"
+            except:
+                pass
+            
+            if self.config.DEBUG_MODE:
+                print(f"Successfully extracted: {name} - {description[:50]}...")
+            
+            return {
+                'name': name,
+                'description': description,
+                'categories': categories,
+                'link': link,
+                'source': 'producthunt.com'
+            }
             
         except Exception as e:
             if self.config.DEBUG_MODE:
