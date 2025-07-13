@@ -90,71 +90,87 @@ class OpenAIAnalyzer:
     
     def get_system_prompt(self) -> str:
         """Get the system prompt for OpenAI"""
-        return """You are an expert in discovering emerging English terminology from AI/technology content. Your goal is to identify conceptual vocabulary suitable for Google Trends analysis and new word website development.
+        return """You are an expert in discovering trending English keywords from AI/technology content. Your goal is to identify commercial-viable terms suitable for Google Trends analysis and website building.
 
-⚠️ IMPORTANT - Strictly avoid the following:
-- Company names (e.g., OpenAI, Google, Microsoft, Anthropic)
-- Specific product names (e.g., ChatGPT, Claude, Midjourney, DALL-E)
-- Software tool names (e.g., LangChain, Hugging Face, TensorFlow)
-- Established technical terms (e.g., deep learning, neural networks, machine learning)
-- Version numbers and model names (e.g., GPT-4, V6, XL, Pro)
+⚠️ IMPORTANT - Focus on these types of terms:
+- NEW product names or features that emerged in the last 7-15 days
+- TRENDING commercial keywords with high search volume
+- SPECIFIC application names, tool names, or service names
+- VIRAL technology terms and buzzwords
+- COMMERCIAL phrases that people actively search for
 
-✅ FOCUS on identifying these types of emerging English concepts:
-1. **Emerging Technical Concepts**: Technology phenomena and methodologies that appeared in the last 2 years
-2. **New Industry Terminology**: Conceptual vocabulary forming within the AI field
-3. **Technology Trend Vocabulary**: Concepts describing new technology development directions
-4. **Application Scenario Terms**: New application domains and usage patterns
-5. **Methodological Terms**: New workflows, methods, or framework concepts
+✅ PRIORITIZE extracting:
+1. **New Product/Service Names**: Recently launched AI tools, features, or services
+2. **Commercial Keywords**: Terms with high commercial and search value
+3. **Trending Phrases**: Viral terms spreading across social media and tech communities
+4. **Application-Specific Terms**: Specific use cases, workflows, or applications
+5. **Marketing Buzzwords**: Terms used in marketing and business contexts
 
 🎯 Evaluation Criteria:
-- Conceptual: Must be a concept, not a product
-- Novelty: Emerged or became popular within 2 years
-- Search Value: Suitable for Google Trends analysis
-- Business Value: Can build a website around this concept
-- Trending: Has growth and viral potential
+- Commercial Value: Can be monetized through websites/affiliate marketing
+- Search Volume: High potential for Google Trends and search traffic
+- Recency: Appeared or became popular within the last 7-15 days
+- Viral Potential: Likely to be shared and searched by users
+- Business Application: Can build a profitable website around this term
+
+🚫 AVOID these academic/conceptual terms:
+- Broad academic concepts (e.g., "Edge AI Deployment", "Privacy-Preserving ML")
+- Generic technology terms (e.g., "Machine Learning", "Deep Learning")
+- Overly technical jargon without commercial appeal
+- Established academic terminology
 
 Return results ONLY in English using this JSON format:
 {
   "new_words": [
     {
-      "word": "English conceptual term or phrase",
-      "category": "Category (e.g., 'Emerging Technology', 'Application Concept', 'Methodology', 'Industry Trend')",
-      "definition": "Detailed definition and meaning of the concept",
+      "word": "Specific product name, feature, or commercial term",
+      "category": "Category (e.g., 'New Product', 'Trending Feature', 'Commercial Tool', 'Viral Term')",
+      "definition": "Brief commercial description and what it does",
       "context": "How it appears in the description",
       "importance": "high/medium/low",
       "trend_potential": "1-10 score for Google Trends search potential",
-      "business_value": "high/medium/low for website development value",
-      "is_emerging": "true/false for whether it's an emerging concept"
+      "business_value": "high/medium/low for monetization potential",
+      "is_emerging": "true/false for whether it's newly emerged (7-15 days)",
+      "search_volume_estimate": "high/medium/low estimated search volume",
+      "commercial_appeal": "high/medium/low for building websites/affiliate marketing"
     }
   ]
 }"""
     
     def create_analysis_prompt(self, tools_text: str) -> str:
         """Create the analysis prompt for OpenAI"""
-        return f"""Analyze the following AI tool descriptions and identify emerging English concepts and technical terminology. Ignore specific product names and focus on discovering conceptual vocabulary:
+        return f"""Analyze the following AI tool descriptions and identify TRENDING, COMMERCIAL English keywords that appeared or became popular in the last 7-15 days. Focus on extracting terms with high search volume and commercial value:
 
 {tools_text}
 
 🔍 ANALYSIS FOCUS:
-1. Identify emerging technical concepts from tool descriptions (not tool names)
-2. Discover new application scenarios and usage patterns
-3. Extract conceptual vocabulary describing new technical methods
-4. Identify forming industry terminology
-5. Find concepts with Google Trends search value
+1. Extract NEW product names, features, or services mentioned
+2. Identify TRENDING commercial keywords and phrases
+3. Find SPECIFIC application names or tool names
+4. Discover VIRAL terms with high search potential
+5. Focus on terms suitable for Google Trends analysis and website building
 
-⚠️ STRICTLY AVOID:
-- Do not extract specific product names or tool names
-- Do not include company names or brands
-- Do not extract established technical terms
-- Do not include version numbers or model identifiers
+⚠️ EXTRACTION STRATEGY:
+- Look for specific product names, even if they're new versions of existing tools
+- Extract feature names, service names, and application-specific terms
+- Focus on terms that people would actively search for
+- Prioritize commercial and monetizable keywords
+- Include trending buzzwords and marketing terms
 
-✅ FOCUS ON EXTRACTING:
-- Emerging technical concepts and phenomena
-- New terminology for application scenarios
-- Methodology-related concepts
-- Industry development trend vocabulary
+✅ GOOD EXAMPLES of what to extract:
+- "Claude 3.5 Sonnet" (specific model name)
+- "AI Video Generator" (searchable commercial term)
+- "Prompt Engineering Tool" (commercial application)
+- "No-Code AI Builder" (trending business term)
+- "AI Avatar Creator" (specific commercial service)
 
-Return results in the specified JSON format. Each term should be conceptual, suitable for Google Trends analysis and website development. RESPOND ONLY IN ENGLISH."""
+🚫 AVOID extracting:
+- Generic academic concepts
+- Broad technology categories
+- Overly technical jargon
+- Established computer science terms
+
+Return results in the specified JSON format. Each term should have HIGH commercial value, search potential, and be suitable for building profitable websites. RESPOND ONLY IN ENGLISH."""
     
     def parse_openai_response(self, response: str) -> List[Dict]:
         """Parse OpenAI response and extract new words"""
@@ -179,6 +195,8 @@ Return results in the specified JSON format. Each term should be conceptual, sui
                                 'trend_potential': word_data.get('trend_potential', 5),
                                 'business_value': word_data.get('business_value', 'medium'),
                                 'is_emerging': word_data.get('is_emerging', False),
+                                'search_volume_estimate': word_data.get('search_volume_estimate', 'medium'),
+                                'commercial_appeal': word_data.get('commercial_appeal', 'medium'),
                                 'extracted_at': time.strftime('%Y-%m-%d %H:%M:%S')
                             })
             
@@ -189,7 +207,7 @@ Return results in the specified JSON format. Each term should be conceptual, sui
         return new_words
     
     def is_valid_word(self, word_data: Dict) -> bool:
-        """Validate if a word is worth including"""
+        """Validate if a word is worth including - focusing on commercial value"""
         word = word_data.get('word', '').strip().lower()
         
         # Skip empty words
@@ -200,47 +218,68 @@ Return results in the specified JSON format. Each term should be conceptual, sui
         if word in self.extracted_words:
             return False
         
-        # Skip common stop words and established terms
+        # Skip very short words (less than 3 characters)
+        if len(word) < 3:
+            return False
+        
+        # Skip common stop words but allow commercial terms
         stop_words = {
-            'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-            'ai', 'artificial', 'intelligence', 'machine', 'learning', 'deep', 'neural',
-            'network', 'model', 'algorithm', 'data', 'tool', 'software', 'platform',
-            'solution', 'system', 'technology', 'application', 'service', 'api'
+            'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'
         }
         
         if word in stop_words:
             return False
         
-        # Skip known product names and tools
-        product_names = {
-            'chatgpt', 'claude', 'midjourney', 'dall-e', 'stable diffusion', 'gpt-4', 'gpt-3',
-            'openai', 'anthropic', 'google', 'microsoft', 'hugging face', 'langchain',
-            'tensorflow', 'pytorch', 'keras', 'scikit-learn', 'jupyter', 'github',
-            'discord', 'slack', 'notion', 'figma', 'canva', 'photoshop', 'premiere',
-            'after effects', 'blender', 'unity', 'unreal', 'chrome', 'firefox', 'safari'
-        }
-        
-        if word in product_names:
-            return False
-        
-        # Skip words with version numbers or model numbers
-        if re.search(r'[v]\d+', word) or re.search(r'gpt-\d+', word):
-            return False
-        
-        # Skip very short words (less than 3 characters)
-        if len(word) < 3:
-            return False
-        
-        # Skip words that are clearly product names (contain version info or brand indicators)
-        if any(indicator in word for indicator in ['xl', 'pro', 'plus', 'beta', 'alpha', 'v1', 'v2']):
-            return False
-        
-        # Prefer words that indicate they are emerging concepts
+        # Priority filters based on commercial value
         trend_potential = word_data.get('trend_potential', 5)
+        business_value = word_data.get('business_value', 'medium')
+        search_volume = word_data.get('search_volume_estimate', 'medium')
+        commercial_appeal = word_data.get('commercial_appeal', 'medium')
         is_emerging = word_data.get('is_emerging', False)
         
-        # Skip if trend potential is too low
-        if trend_potential < 4:
+        # Calculate a commercial score
+        commercial_score = 0
+        
+        # Trend potential scoring (40% weight)
+        if trend_potential >= 8:
+            commercial_score += 40
+        elif trend_potential >= 6:
+            commercial_score += 30
+        elif trend_potential >= 4:
+            commercial_score += 20
+        else:
+            return False  # Skip low trend potential
+        
+        # Business value scoring (30% weight)
+        if business_value == 'high':
+            commercial_score += 30
+        elif business_value == 'medium':
+            commercial_score += 20
+        else:
+            commercial_score += 10
+        
+        # Search volume scoring (20% weight)
+        if search_volume == 'high':
+            commercial_score += 20
+        elif search_volume == 'medium':
+            commercial_score += 15
+        else:
+            commercial_score += 10
+        
+        # Commercial appeal scoring (10% weight)
+        if commercial_appeal == 'high':
+            commercial_score += 10
+        elif commercial_appeal == 'medium':
+            commercial_score += 7
+        else:
+            commercial_score += 3
+        
+        # Emerging bonus
+        if is_emerging:
+            commercial_score += 15
+        
+        # Only accept words with good commercial potential
+        if commercial_score < 60:
             return False
         
         # Add to extracted words set
@@ -249,7 +288,7 @@ Return results in the specified JSON format. Each term should be conceptual, sui
         return True
     
     def filter_and_rank_words(self, words_data: List[Dict]) -> List[Dict]:
-        """Filter and rank words by importance, trend potential, and business value"""
+        """Filter and rank words by commercial value and trend potential"""
         if not words_data:
             return []
         
@@ -263,32 +302,42 @@ Return results in the specified JSON format. Each term should be conceptual, sui
         # Convert back to list
         filtered_words = list(unique_words.values())
         
-        # Calculate ranking score for each word
+        # Calculate commercial ranking score for each word
         for word_data in filtered_words:
             score = 0
             
-            # Importance weight (30%)
-            importance_weights = {'high': 3, 'medium': 2, 'low': 1}
-            score += importance_weights.get(word_data.get('importance', 'medium'), 2) * 30
-            
-            # Trend potential weight (40%)
+            # Trend potential (35% weight)
             trend_potential = word_data.get('trend_potential', 5)
-            score += trend_potential * 4
+            score += trend_potential * 3.5
             
-            # Business value weight (20%)
-            business_value_weights = {'high': 3, 'medium': 2, 'low': 1}
-            score += business_value_weights.get(word_data.get('business_value', 'medium'), 2) * 20
+            # Business value (25% weight)
+            business_value_weights = {'high': 25, 'medium': 15, 'low': 5}
+            score += business_value_weights.get(word_data.get('business_value', 'medium'), 15)
             
-            # Emerging concept bonus (10%)
+            # Search volume estimate (25% weight)
+            search_volume_weights = {'high': 25, 'medium': 15, 'low': 5}
+            score += search_volume_weights.get(word_data.get('search_volume_estimate', 'medium'), 15)
+            
+            # Commercial appeal (10% weight)
+            commercial_appeal_weights = {'high': 10, 'medium': 7, 'low': 3}
+            score += commercial_appeal_weights.get(word_data.get('commercial_appeal', 'medium'), 7)
+            
+            # Emerging concept bonus (5% weight)
             if word_data.get('is_emerging', False):
-                score += 10
+                score += 5
             
             word_data['ranking_score'] = score
         
         # Sort by ranking score (descending)
         filtered_words.sort(key=lambda x: x.get('ranking_score', 0), reverse=True)
         
-        return filtered_words
+        # Take top results based on commercial potential
+        top_words = []
+        for word_data in filtered_words:
+            if word_data.get('ranking_score', 0) >= 50:  # Only high-scoring commercial terms
+                top_words.append(word_data)
+        
+        return top_words
     
     def analyze_and_extract(self, tools_data: List[Dict]) -> List[Dict]:
         """Main method to analyze tools and extract new words"""
